@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Guía Comercial · tuhabi</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
+  .tab-btn.active { background:#6d28d9; color:#fff; }
+  .tab-btn { transition: all .2s; }
+  .section { display:none; }
+  .section.active { display:block; }
+  input[type=number]::-webkit-inner-spin-button { -webkit-appearance:none; }
+  .result-card { animation: fadeIn .3s ease; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+  .chip { display:inline-flex;align-items:center;padding:2px 10px;border-radius:9999px;font-size:12px;font-weight:600; }
+  select,input { outline:none; }
+  select:focus,input:focus { ring:2px solid #6d28d9; }
+</style>
+</head>
+<body class="bg-violet-50 min-h-screen pb-16">
+
+<!-- HEADER -->
+<div class="bg-violet-700 text-white px-4 pt-10 pb-6 shadow-lg">
+  <div class="max-w-lg mx-auto">
+    <div class="flex items-center gap-3 mb-1">
+      <div class="w-8 h-8 bg-white rounded-lg flex items-center justify-center shadow">
+        <svg class="w-5 h-5 text-violet-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+      </div>
+      <div>
+        <div class="text-xs text-violet-300 font-medium tracking-wide uppercase">tuhabi · Buyers VdMx</div>
+        <h1 class="text-lg font-bold leading-tight">Guía Comercial</h1>
+      </div>
+    </div>
+    <p class="text-violet-200 text-xs mt-2">Política de Venta · Febrero 2026</p>
+  </div>
+</div>
+
+<!-- TABS -->
+<div class="sticky top-0 z-20 bg-white shadow-sm border-b border-violet-100">
+  <div class="max-w-lg mx-auto flex overflow-x-auto">
+    <button onclick="switchTab('anticipo')" id="tab-anticipo" class="tab-btn active flex-1 min-w-0 py-3 px-2 text-xs font-semibold text-gray-500 whitespace-nowrap rounded-none">
+      💰 Anticipo
+    </button>
+    <button onclick="switchTab('plazos')" id="tab-plazos" class="tab-btn flex-1 min-w-0 py-3 px-2 text-xs font-semibold text-gray-500 whitespace-nowrap rounded-none">
+      ⏱ Plazos
+    </button>
+    <button onclick="switchTab('docs')" id="tab-docs" class="tab-btn flex-1 min-w-0 py-3 px-2 text-xs font-semibold text-gray-500 whitespace-nowrap rounded-none">
+      📋 Documentos
+    </button>
+    <button onclick="switchTab('subasta')" id="tab-subasta" class="tab-btn flex-1 min-w-0 py-3 px-2 text-xs font-semibold text-gray-500 whitespace-nowrap rounded-none">
+      🔨 Subasta
+    </button>
+  </div>
+</div>
+
+<div class="max-w-lg mx-auto px-4 mt-5">
+
+<!-- ══════════════════════════════════════════
+     TAB 1: CALCULADORA DE ANTICIPO Y FEE
+═══════════════════════════════════════════ -->
+<div id="section-anticipo" class="section active space-y-4">
+
+  <div class="bg-white rounded-2xl shadow-sm border border-violet-100 p-5 space-y-4">
+    <h2 class="font-bold text-gray-800 text-base">Calculadora de Anticipo</h2>
+
+    <!-- Tipo de operación -->
+    <div>
+      <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">Tipo de operación</label>
+      <div class="flex gap-2">
+        <button onclick="setOp('mm',this)" id="op-mm" class="flex-1 py-2.5 rounded-xl text-sm font-semibold border-2 border-violet-600 bg-violet-600 text-white transition-all">Market Maker</button>
+        <button onclick="setOp('inmo',this)" id="op-inmo" class="flex-1 py-2.5 rounded-xl text-sm font-semibold border-2 border-gray-200 text-gray-500 transition-all">Inmobiliaria</button>
+      </div>
+    </div>
+
+    <!-- Tipo de crédito -->
+    <div>
+      <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">Tipo de crédito</label>
+      <select id="tipo-credito" onchange="onCreditoChange()" class="w-full border-2 border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-800 bg-white focus:border-violet-500">
+        <option value="">— Selecciona —</option>
+        <option value="recurso_propio">Recurso Propio</option>
+        <option value="infonavit">Infonavit Tradicional</option>
+        <option value="infonavit_hc100">Infonavit HC100 (HabiCredit)</option>
+        <option value="bancario">Bancario / Cofinavit</option>
+        <option value="fovissste">Fovissste</option>
+        <option value="compraventa">Compraventa (sin fee)</option>
+      </select>
+    </div>
+
+    <!-- Ciudad (solo Infonavit) -->
+    <div id="row-ciudad" class="hidden">
+      <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">Ciudad</label>
+      <div class="flex gap-2">
+        <button onclick="setCiudad('general',this)" id="ciudad-general" class="flex-1 py-2.5 rounded-xl text-sm font-semibold border-2 border-violet-600 bg-violet-600 text-white transition-all">General</button>
+        <button onclick="setCiudad('queretaro',this)" id="ciudad-queretaro" class="flex-1 py-2.5 rounded-xl text-sm font-semibold border-2 border-gray-200 text-gray-500 transition-all">Querétaro</button>
+      </div>
+    </div>
+
+    <!-- Valor del inmueble -->
+    <div>
+      <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">Valor del inmueble</label>
+      <div class="relative">
+        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-semibold">$</span>
+        <input type="number" id="valor" placeholder="0" oninput="calcular()" class="w-full pl-7 pr-3 py-2.5 border-2 border-gray-200 rounded-xl text-sm focus:border-violet-500 text-gray-800">
+        <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">MXN</span>
+      </div>
+    </div>
+
+    <!-- Monto de crédito -->
+    <div id="row-credito" class="hidden">
+      <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">Monto de crédito autorizado</label>
+      <div class="relative">
+        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-semibold">$</span>
+        <input type="number" id="credito" placeholder="0" oninput="calcular()" class="w-full pl-7 pr-3 py-2.5 border-2 border-gray-200 rounded-xl text-sm focus:border-violet-500 text-gray-800">
+        <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">MXN</span>
+      </div>
+    </div>
+
+    <!-- Estado de cuenta (Recurso Propio) -->
+    <div id="row-estado" class="hidden">
+      <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">¿El cliente presenta estado de cuenta?</label>
+      <div class="flex gap-2">
+        <button onclick="setEstado('si',this)" id="estado-si" class="flex-1 py-2.5 rounded-xl text-sm font-semibold border-2 border-gray-200 text-gray-500 transition-all">Sí</button>
+        <button onclick="setEstado('no',this)" id="estado-no" class="flex-1 py-2.5 rounded-xl text-sm font-semibold border-2 border-violet-600 bg-violet-600 text-white transition-all">No</button>
+      </div>
+      <p class="text-xs text-gray-400 mt-1.5">El estado de cuenta debe mostrar nombre, fecha y monto que cubra el 100% del valor.</p>
+    </div>
+
+    <!-- Alto riesgo (Infonavit) -->
+    <div id="row-riesgo" class="hidden">
+      <label class="flex items-center gap-3 cursor-pointer">
+        <input type="checkbox" id="alto-riesgo" onchange="calcular()" class="w-4 h-4 accent-violet-600 rounded">
+        <div>
+          <span class="text-sm font-semibold text-gray-700">Alto riesgo de desistimiento</span>
+          <p class="text-xs text-gray-400">Suma 3% adicional al anticipo</p>
+        </div>
+      </label>
+    </div>
+  </div>
+
+  <!-- RESULTADO -->
+  <div id="resultado" class="hidden result-card"></div>
+
+</div>
+
+<!-- ══════════════════════════════════════════
+     TAB 2: PLAZOS CLAVE
+═══════════════════════════════════════════ -->
+<div id="section-plazos" class="section space-y-3">
+
+  <div class="bg-white rounded-2xl shadow-sm border border-violet-100 overflow-hidden">
+    <div class="bg-violet-700 px-5 py-3">
+      <h2 class="text-white font-bold text-sm">Proceso de Oferta — Tiempos</h2>
+    </div>
+    <div class="divide-y divide-gray-100">
+      <div class="px-5 py-3.5 flex gap-3 items-start">
+        <div class="w-10 h-10 rounded-xl bg-violet-100 flex items-center justify-center text-violet-700 font-bold text-sm shrink-0">48h</div>
+        <div>
+          <p class="text-sm font-semibold text-gray-800">Subir contrato firmado</p>
+          <p class="text-xs text-gray-500 mt-0.5">Desde que la card avanza a <strong>Legalizador</strong>. Sin excepciones en feriados.</p>
+        </div>
+      </div>
+      <div class="px-5 py-3.5 flex gap-3 items-start">
+        <div class="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center text-amber-700 font-bold text-sm shrink-0">24h</div>
+        <div>
+          <p class="text-sm font-semibold text-gray-800">Prórroga por docs faltantes de la empresa</p>
+          <p class="text-xs text-gray-500 mt-0.5">Desde que Legal envía el contrato o carta oferta unilateral.</p>
+        </div>
+      </div>
+      <div class="px-5 py-3.5 flex gap-3 items-start">
+        <div class="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center text-amber-700 font-bold text-sm shrink-0">12h</div>
+        <div>
+          <p class="text-sm font-semibold text-gray-800">Prórroga sin fila</p>
+          <p class="text-xs text-gray-500 mt-0.5">Solicitarse antes del vencimiento. Enviar a <strong>solicitudeventa@tuhabi.mx</strong>.</p>
+        </div>
+      </div>
+      <div class="px-5 py-3.5 flex gap-3 items-start">
+        <div class="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-xs shrink-0 text-center leading-tight">23:59<br>D+1</div>
+        <div>
+          <p class="text-sm font-semibold text-gray-800">Comprobante de pago</p>
+          <p class="text-xs text-gray-500 mt-0.5">Desde firma de contrato. Concepto: NID (solo números) + tipo: "Anticipo", "Fee" o "Liquidación".</p>
+        </div>
+      </div>
+      <div class="px-5 py-3.5 flex gap-3 items-start">
+        <div class="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center text-orange-700 font-bold text-sm shrink-0">3 día</div>
+        <div>
+          <p class="text-sm font-semibold text-gray-800">Prórroga de pago máxima</p>
+          <p class="text-xs text-gray-500 mt-0.5">Solo si no hay fila. Solicitar a solicitudeventa@tuhabi.mx. Más de 3 días → requiere aprobación del Head.</p>
+        </div>
+      </div>
+      <div class="px-5 py-3.5 flex gap-3 items-start">
+        <div class="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center text-red-700 font-bold text-sm shrink-0">10d</div>
+        <div>
+          <p class="text-sm font-semibold text-gray-800">Retención de cliente</p>
+          <p class="text-xs text-gray-500 mt-0.5">El cliente pertenece al asesor que lo ingresó primero en Pipefy por máximo 10 días. Después queda libre.</p>
+        </div>
+      </div>
+      <div class="px-5 py-3.5 flex gap-3 items-start">
+        <div class="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center text-red-700 font-bold text-sm shrink-0">30d</div>
+        <div>
+          <p class="text-sm font-semibold text-gray-800">Máximo en fila</p>
+          <p class="text-xs text-gray-500 mt-0.5">Si el inmueble se liberó y la fila supera 30 días naturales, no se pueden mantener las ofertas.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="bg-white rounded-2xl shadow-sm border border-violet-100 overflow-hidden">
+    <div class="bg-violet-700 px-5 py-3">
+      <h2 class="text-white font-bold text-sm">Finalizado — Entrega de Expediente</h2>
+    </div>
+    <div class="divide-y divide-gray-100">
+      <div class="px-5 py-3.5 flex gap-3 items-start">
+        <div class="w-10 h-10 rounded-xl bg-violet-100 flex items-center justify-center text-violet-700 font-bold text-sm shrink-0">24h</div>
+        <div>
+          <p class="text-sm font-semibold text-gray-800">Subir documentos</p>
+          <p class="text-xs text-gray-500 mt-0.5">Desde que recibes el correo del área de dictamen con la liga.</p>
+        </div>
+      </div>
+      <div class="px-5 py-3.5 flex gap-3 items-start">
+        <div class="w-10 h-10 rounded-xl bg-violet-100 flex items-center justify-center text-violet-700 font-bold text-sm shrink-0">72h</div>
+        <div>
+          <p class="text-sm font-semibold text-gray-800">Solventar inconsistencias</p>
+          <p class="text-xs text-gray-500 mt-0.5">Desde la entrega del expediente.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="bg-amber-50 border border-amber-200 rounded-2xl p-4">
+    <p class="text-xs font-bold text-amber-800 mb-1">Periodos Infonavit 2026</p>
+    <div class="space-y-0.5 text-xs text-amber-700">
+      <p>18 Feb — 17 Abr &nbsp;·&nbsp; 18 Abr — 17 Jun</p>
+      <p>18 Jun — 17 Ago &nbsp;·&nbsp; 18 Ago — 17 Oct</p>
+      <p>18 Oct — 17 Dic &nbsp;·&nbsp; 18 Dic — 17 Feb</p>
+    </div>
+    <p class="text-xs text-amber-600 mt-2">Infonavit hace un corte intermedio no fijo. Dictamen notificará sobre actualizaciones de precalificación.</p>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════════════════
+     TAB 3: DOCUMENTOS POR CRÉDITO
+═══════════════════════════════════════════ -->
+<div id="section-docs" class="section space-y-4">
+
+  <div class="bg-white rounded-2xl shadow-sm border border-violet-100 p-5">
+    <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-2">Tipo de crédito</label>
+    <select id="docs-credito" onchange="mostrarDocs()" class="w-full border-2 border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-800 bg-white focus:border-violet-500">
+      <option value="">— Selecciona para ver checklist —</option>
+      <option value="todos">Todos los créditos (docs base)</option>
+      <option value="infonavit">Infonavit</option>
+      <option value="bancario">Bancario (HSBC, Scotiabank, etc.)</option>
+      <option value="habicredit">HabiCredit Bancario</option>
+      <option value="cofinavit">Cofinavit</option>
+      <option value="apoyo_infonavit">Apoyo Infonavit</option>
+      <option value="fovissste">Fovissste</option>
+    </select>
+  </div>
+
+  <div id="docs-resultado"></div>
+
+</div>
+
+<!-- ══════════════════════════════════════════
+     TAB 4: SUBASTA Y CHAPA
+═══════════════════════════════════════════ -->
+<div id="section-subasta" class="section space-y-4">
+
+  <!-- Checker de Subasta -->
+  <div class="bg-white rounded-2xl shadow-sm border border-violet-100 p-5 space-y-4">
+    <h2 class="font-bold text-gray-800 text-base">¿Aplica subasta?</h2>
+    <div>
+      <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">Precio de oferta</label>
+      <div class="relative">
+        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-semibold">$</span>
+        <input type="number" id="precio-oferta" placeholder="0" oninput="checkSubasta()" class="w-full pl-7 pr-3 py-2.5 border-2 border-gray-200 rounded-xl text-sm focus:border-violet-500">
+      </div>
+    </div>
+    <div>
+      <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">Precio de lista</label>
+      <div class="relative">
+        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-semibold">$</span>
+        <input type="number" id="precio-lista" placeholder="0" oninput="checkSubasta()" class="w-full pl-7 pr-3 py-2.5 border-2 border-gray-200 rounded-xl text-sm focus:border-violet-500">
+      </div>
+    </div>
+    <div id="subasta-resultado"></div>
+  </div>
+
+  <!-- Checker de Chapa -->
+  <div class="bg-white rounded-2xl shadow-sm border border-violet-100 p-5 space-y-4">
+    <h2 class="font-bold text-gray-800 text-base">Chapa Electrónica</h2>
+    <div>
+      <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">NID del inmueble</label>
+      <input type="text" id="nid" placeholder="Ej: 12345" oninput="checkChapa()" maxlength="10" class="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl text-sm focus:border-violet-500">
+    </div>
+    <div>
+      <label class="flex items-center gap-3 cursor-pointer">
+        <input type="checkbox" id="codigo-descuento" onchange="checkChapa()" class="w-4 h-4 accent-violet-600">
+        <span class="text-sm font-semibold text-gray-700">¿Usas código de descuento?</span>
+      </label>
+    </div>
+    <div id="chapa-resultado"></div>
+  </div>
+
+  <!-- Reglas rápidas de subasta -->
+  <div class="bg-white rounded-2xl shadow-sm border border-violet-100 overflow-hidden">
+    <div class="bg-violet-700 px-5 py-3">
+      <h2 class="text-white font-bold text-sm">Reglas de Subasta</h2>
+    </div>
+    <div class="divide-y divide-gray-100 text-sm">
+      <div class="px-5 py-3 flex gap-3">
+        <span class="text-green-500 font-bold shrink-0">✓</span>
+        <p class="text-gray-600"><strong>Precio de lista</strong> → avanza directo a legalización. Sin contador.</p>
+      </div>
+      <div class="px-5 py-3 flex gap-3">
+        <span class="text-amber-500 font-bold shrink-0">!</span>
+        <p class="text-gray-600"><strong>Precio menor</strong> → subasta de 24 horas desde "Documentos Validados".</p>
+      </div>
+      <div class="px-5 py-3 flex gap-3">
+        <span class="text-blue-500 font-bold shrink-0">ℹ</span>
+        <p class="text-gray-600">Si llega una oferta a precio de lista durante la subasta, el contador se <strong>cancela</strong>.</p>
+      </div>
+      <div class="px-5 py-3 flex gap-3">
+        <span class="text-red-500 font-bold shrink-0">✗</span>
+        <p class="text-gray-600">Precio por debajo del mínimo → requiere aprobación del <strong>Inventory Manager</strong> o líder.</p>
+      </div>
+      <div class="px-5 py-3 flex gap-3">
+        <span class="text-gray-400 font-bold shrink-0">→</span>
+        <p class="text-gray-600">Fila máxima por cliente: <strong>30 días</strong>. Después se pierde el lugar.</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</div><!-- /max-w-lg -->
+
+<script>
+// ── Estado global ──────────────────────────────
+let tipoOp = 'mm';
+let ciudad = 'general';
+let estadoCuenta = 'no';
+
+// ── Navegación ─────────────────────────────────
+function switchTab(tab) {
+  ['anticipo','plazos','docs','subasta'].forEach(t => {
+    document.getElementById('section-' + t).classList.remove('active');
+    document.getElementById('tab-' + t).classList.remove('active');
+    document.getElementById('tab-' + t).classList.add('text-gray-500');
+  });
+  document.getElementById('section-' + tab).classList.add('active');
+  document.getElementById('tab-' + tab).classList.add('active');
+  document.getElementById('tab-' + tab).classList.remove('text-gray-500');
+}
+
+// ── Setters de botones ─────────────────────────
+function setOp(val, btn) {
+  tipoOp = val;
+  ['mm','inmo'].forEach(k => {
+    const b = document.getElementById('op-' + k);
+    b.className = 'flex-1 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ' +
+      (k === val ? 'border-violet-600 bg-violet-600 text-white' : 'border-gray-200 text-gray-500 bg-white');
+  });
+  calcular();
+}
+
+function setCiudad(val, btn) {
+  ciudad = val;
+  ['general','queretaro'].forEach(k => {
+    const b = document.getElementById('ciudad-' + k);
+    b.className = 'flex-1 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ' +
+      (k === val ? 'border-violet-600 bg-violet-600 text-white' : 'border-gray-200 text-gray-500 bg-white');
+  });
+  calcular();
+}
+
+function setEstado(val, btn) {
+  estadoCuenta = val;
+  ['si','no'].forEach(k => {
+    const b = document.getElementById('estado-' + k);
+    b.className = 'flex-1 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ' +
+      (k === val ? 'border-violet-600 bg-violet-600 text-white' : 'border-gray-200 text-gray-500 bg-white');
+  });
+  calcular();
+}
+
+function onCreditoChange() {
+  const tc = document.getElementById('tipo-credito').value;
+  document.getElementById('row-credito').classList.toggle('hidden', !['infonavit','infonavit_hc100','bancario','fovissste'].includes(tc));
+  document.getElementById('row-ciudad').classList.toggle('hidden', !['infonavit'].includes(tc));
+  document.getElementById('row-estado').classList.toggle('hidden', tc !== 'recurso_propio');
+  document.getElementById('row-riesgo').classList.toggle('hidden', !['infonavit','fovissste'].includes(tc));
+  calcular();
+}
+
+// ── Formatter ─────────────────────────────────
+function fmt(n) {
+  return '$' + Math.round(n).toLocaleString('es-MX') + ' MXN';
+}
+
+// ── Calculadora principal ──────────────────────
+function calcular() {
+  const tc = document.getElementById('tipo-credito').value;
+  const valor = parseFloat(document.getElementById('valor').value) || 0;
+  const credito = parseFloat(document.getElementById('credito').value) || 0;
+  const altoRiesgo = document.getElementById('alto-riesgo')?.checked || false;
+
+  const el = document.getElementById('resultado');
+  if (!tc || valor <= 0) { el.classList.add('hidden'); return; }
+
+  const FEE_THR = 1250000;
+  const FEE_RATE = 0.0116;
+  const diferencia = Math.max(0, valor - credito);
+  const esInmo = tipoOp === 'inmo';
+
+  let anticipo = 0, fee = 0, pagosSeparados = false;
+  let notas = [], warns = [];
+
+  switch(tc) {
+    case 'recurso_propio':
+      anticipo = estadoCuenta === 'si' ? valor * 0.10 : valor * 0.30;
+      if (estadoCuenta === 'si') notas.push('Estado de cuenta debe mostrar nombre, fecha y monto que cubra el 100% del valor.');
+      break;
+
+    case 'infonavit':
+    case 'fovissste':
+      if (ciudad === 'queretaro' && tc === 'infonavit') {
+        // Reglas especiales Querétaro
+        if (valor >= FEE_THR) {
+          if (diferencia > 0) {
+            anticipo = Math.max(valor * 0.01, diferencia * 0.30);
+          } else {
+            anticipo = valor * 0.01;
+          }
+          fee = 0;
+        } else {
+          if (diferencia > 0) {
+            anticipo = diferencia * 0.30;
+            if (!esInmo) { fee = valor * FEE_RATE; pagosSeparados = true; }
+          } else {
+            anticipo = 0;
+            if (!esInmo) fee = valor * FEE_RATE;
+          }
+        }
+      } else {
+        // General (y Fovissste)
+        if (diferencia === 0) {
+          anticipo = valor * 0.03;
+          if (valor < FEE_THR && !esInmo) { fee = valor * FEE_RATE; pagosSeparados = true; }
+        } else {
+          anticipo = Math.max(diferencia * 0.30, valor * 0.03);
+          if (valor < FEE_THR && !esInmo) { fee = valor * FEE_RATE; pagosSeparados = true; }
+        }
+        if (altoRiesgo) {
+          anticipo += valor * 0.03;
+          warns.push('Se suma 3% adicional al anticipo por alto riesgo de desistimiento.');
+        }
+      }
+      if (esInmo) {
+        notas.push('Inmobiliaria está exenta del Fee de Protección.');
+        if (anticipo === 0 && diferencia === 0) { anticipo = valor * 0.03; notas.push('En Inmobiliaria el 3% se paga como anticipo.'); }
+      }
+      break;
+
+    case 'infonavit_hc100':
+      if (diferencia === 0) {
+        if (valor < FEE_THR) {
+          if (esInmo) {
+            anticipo = valor * 0.01;
+            notas.push('En Inmobiliaria el 1% se paga por concepto de anticipo.');
+          } else {
+            anticipo = 0;
+            fee = valor * FEE_RATE;
+          }
+        } else {
+          anticipo = valor * 0.01;
+          fee = 0;
+        }
+      } else {
+        if (valor < FEE_THR) {
+          anticipo = diferencia * 0.30;
+          if (!esInmo) { fee = valor * FEE_RATE; pagosSeparados = true; }
+        } else {
+          anticipo = Math.max(valor * 0.01, diferencia * 1.0);
+          fee = 0;
+        }
+      }
+      break;
+
+    case 'bancario':
+      if (credito > 0) {
+        const aforo = credito / valor;
+        if (aforo >= 0.90) {
+          anticipo = 10000;
+          notas.push('Crédito cubre ≥90% del valor. Anticipo mínimo = $10,000.');
+        } else {
+          anticipo = diferencia * 0.30;
+          notas.push('Crédito cubre <90% del valor. Anticipo = 30% de la diferencia.');
+        }
+      } else {
+        anticipo = 10000;
+        notas.push('Sin monto de crédito ingresado. Se muestra el anticipo mínimo.');
+      }
+      notas.push('Cofinavit se rige por los mismos criterios.');
+      break;
+
+    case 'compraventa':
+      anticipo = 5000;
+      fee = 0;
+      warns.push('Compraventa: anticipo fijo de $5,000 en todos los casos. Sin Fee de Protección ni cobertura de desperfilamiento.');
+      break;
+  }
+
+  // Render resultado
+  el.classList.remove('hidden');
+  el.innerHTML = renderResultado(anticipo, fee, pagosSeparados, notas, warns, diferencia, valor, tc);
+}
+
+function renderResultado(anticipo, fee, separados, notas, warns, diferencia, valor, tc) {
+  const total = anticipo + fee;
+  let html = '<div class="space-y-3 result-card">';
+
+  // Anticipo
+  html += `
+    <div class="bg-violet-700 text-white rounded-2xl p-5">
+      <div class="text-xs font-semibold text-violet-300 uppercase tracking-wide mb-1">Anticipo</div>
+      <div class="text-3xl font-extrabold">${fmt(anticipo)}</div>
+      ${anticipo > 0 && valor > 0 ? `<div class="text-violet-300 text-sm mt-1">${(anticipo/valor*100).toFixed(2)}% del valor del inmueble</div>` : ''}
+    </div>`;
+
+  // Fee
+  if (fee > 0) {
+    html += `
+    <div class="bg-amber-500 text-white rounded-2xl p-5">
+      <div class="text-xs font-semibold text-amber-100 uppercase tracking-wide mb-1">Fee de Protección (1.16%)</div>
+      <div class="text-3xl font-extrabold">${fmt(fee)}</div>
+      ${separados ? '<div class="text-amber-100 text-xs mt-1">⚠ Pago en transferencia SEPARADA del anticipo.</div>' : ''}
+    </div>`;
+  }
+
+  // Total
+  if (fee > 0) {
+    html += `
+    <div class="bg-gray-800 text-white rounded-2xl px-5 py-3 flex justify-between items-center">
+      <span class="text-sm font-semibold text-gray-300">Total a pagar</span>
+      <span class="text-xl font-extrabold">${fmt(total)}</span>
+    </div>`;
+  }
+
+  // Diferencia
+  if (diferencia > 0) {
+    html += `
+    <div class="bg-white rounded-2xl border border-gray-200 px-5 py-3 flex justify-between items-center">
+      <span class="text-sm text-gray-500">Diferencia crédito / valor</span>
+      <span class="text-sm font-bold text-red-600">${fmt(diferencia)}</span>
+    </div>`;
+  }
+
+  // Notas
+  if (warns.length) {
+    html += '<div class="bg-red-50 border border-red-200 rounded-2xl p-4 space-y-1">';
+    warns.forEach(n => html += `<p class="text-xs text-red-700 font-semibold">⚠ ${n}</p>`);
+    html += '</div>';
+  }
+  if (notas.length) {
+    html += '<div class="bg-violet-50 border border-violet-200 rounded-2xl p-4 space-y-1.5">';
+    notas.forEach(n => html += `<p class="text-xs text-violet-700">ℹ ${n}</p>`);
+    html += '</div>';
+  }
+
+  // Referencia concepto pago
+  html += `
+    <div class="bg-gray-50 border border-gray-200 rounded-2xl p-4">
+      <p class="text-xs font-bold text-gray-600 mb-2">Concepto del comprobante de pago</p>
+      <div class="flex flex-wrap gap-2">
+        <span class="chip bg-violet-100 text-violet-700">NID (solo números)</span>
+        <span class="chip bg-violet-100 text-violet-700">Anticipo</span>
+        ${fee > 0 ? '<span class="chip bg-amber-100 text-amber-700">Fee (pago separado)</span>' : ''}
+      </div>
+    </div>`;
+
+  html += '</div>';
+  return html;
+}
+
+// ── Documentos ─────────────────────────────────
+const DOCS_BASE = [
+  { label: 'Identificación oficial vigente', detail: 'INE/IFE o Pasaporte. Extranjeros: Pasaporte + Forma migratoria.' },
+  { label: 'CURP', detail: 'Certificada con QR, del año en curso, verificada con el Registro Civil.' },
+  { label: 'Constancia de situación fiscal', detail: 'Completa, del año en curso o no mayor a 3 meses. "Suspendido" se acepta si ya hay cita de reactivación.' },
+  { label: 'Acta de nacimiento', detail: 'Digital o física con QR, del año en curso. Extranjeros: apostillada.' },
+  { label: 'Comprobante de domicilio', detail: 'No mayor a 3 meses. No se acepta: agua, predial ni gas.' },
+];
+
+const DOCS_EXTRA = {
+  infonavit: [
+    { label: 'Precalificación Infonavit vigente', detail: 'Debe mostrar: nombre, NSS, fecha, modalidad, desglose y valor de la vivienda.' },
+    { label: 'RMA — Resumen de Movimientos de Ahorro', detail: 'PDF del periodo Infonavit en curso. Adjuntar imagen del error si no se puede descargar.' },
+  ],
+  bancario: [
+    { label: 'Carta de autorización de crédito', detail: 'Debe incluir: nombre, fecha, vigencia, tipo, monto y condiciones. HSBC/Scotiabank solo para Compraventa/Habi Inmobiliaria.' },
+  ],
+  habicredit: [
+    { label: 'Pre-autorización HabiCredit', detail: 'Debe incluir: nombre, fecha del mes en curso, tipo y monto de crédito.' },
+  ],
+  cofinavit: [
+    { label: 'Carta de autorización bancaria Cofinavit', detail: '' },
+    { label: 'Precalificación Cofinavit', detail: '' },
+  ],
+  apoyo_infonavit: [
+    { label: 'Carta de autorización "Apoyo Infonavit" (bancaria)', detail: '' },
+    { label: 'Precalificación Infonavit', detail: '' },
+  ],
+  fovissste: [
+    { label: 'Simulador de Crédito Fovissste', detail: 'Debe incluir RFC, fecha de consulta y capacidad máxima. Solo Compraventa/Habi Inmobiliaria.' },
+    { label: '3 cartas de la SOFOM firmadas', detail: '' },
+  ],
+};
+
+function mostrarDocs() {
+  const tipo = document.getElementById('docs-credito').value;
+  const el = document.getElementById('docs-resultado');
+  if (!tipo) { el.innerHTML = ''; return; }
+
+  const base = DOCS_BASE;
+  const extra = tipo === 'todos' ? [] : (DOCS_EXTRA[tipo] || []);
+  const all = [...base, ...extra];
+
+  let html = '<div class="space-y-2">';
+  html += `<div class="bg-white rounded-2xl shadow-sm border border-violet-100 overflow-hidden">`;
+  html += `<div class="bg-violet-700 px-5 py-3"><h3 class="text-white font-bold text-sm">Documentos requeridos (${all.length})</h3></div>`;
+  html += '<div class="divide-y divide-gray-100">';
+
+  all.forEach((doc, i) => {
+    html += `
+      <div class="px-5 py-3.5 flex gap-3 items-start">
+        <div class="w-6 h-6 rounded-full bg-violet-100 flex items-center justify-center text-violet-700 font-bold text-xs shrink-0 mt-0.5">${i+1}</div>
+        <div>
+          <p class="text-sm font-semibold text-gray-800">${doc.label}</p>
+          ${doc.detail ? `<p class="text-xs text-gray-500 mt-0.5">${doc.detail}</p>` : ''}
+        </div>
+      </div>`;
+  });
+
+  html += '</div></div>';
+
+  if (tipo === 'bancario') {
+    html += `<div class="bg-blue-50 border border-blue-200 rounded-2xl p-4 text-xs text-blue-700">
+      <p class="font-bold mb-1">Cofinavit</p>
+      <p>Se regula por los mismos criterios que Bancario. Agregar también la Precalificación Cofinavit.</p>
+    </div>`;
+  }
+
+  // Nota régimen matrimonial
+  html += `<div class="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-xs text-amber-700 space-y-1">
+    <p class="font-bold">Régimen patrimonial</p>
+    <p>• <strong>Separación de bienes:</strong> Acta de matrimonio.</p>
+    <p>• <strong>Sociedad conyugal:</strong> Acta de matrimonio + misma documentación del titular para el cónyuge.</p>
+  </div>`;
+
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+// ── Subasta ────────────────────────────────────
+function checkSubasta() {
+  const oferta = parseFloat(document.getElementById('precio-oferta').value) || 0;
+  const lista  = parseFloat(document.getElementById('precio-lista').value) || 0;
+  const el = document.getElementById('subasta-resultado');
+  if (!oferta || !lista) { el.innerHTML = ''; return; }
+
+  const diferencia = lista - oferta;
+  const pct = (diferencia / lista * 100).toFixed(2);
+
+  if (oferta >= lista) {
+    el.innerHTML = `
+      <div class="bg-green-50 border border-green-200 rounded-2xl p-4 flex gap-3 items-start">
+        <div class="text-green-600 text-xl shrink-0">✓</div>
+        <div>
+          <p class="text-sm font-bold text-green-800">Avanza directo a Legalización</p>
+          <p class="text-xs text-green-600 mt-0.5">La oferta iguala o supera el precio de lista. Sin subasta.</p>
+        </div>
+      </div>`;
+  } else {
+    el.innerHTML = `
+      <div class="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex gap-3 items-start">
+        <div class="text-amber-600 text-xl shrink-0">⏱</div>
+        <div>
+          <p class="text-sm font-bold text-amber-800">Subasta de 24 horas</p>
+          <p class="text-xs text-amber-600 mt-0.5">La oferta está ${fmt(diferencia)} (${pct}%) por debajo del precio de lista.</p>
+          <p class="text-xs text-amber-600 mt-1">Tiempo inicia desde <strong>"Documentos Validados"</strong>.</p>
+        </div>
+      </div>`;
+  }
+}
+
+// ── Chapa ──────────────────────────────────────
+function checkChapa() {
+  const nid = document.getElementById('nid').value.trim();
+  const descuento = document.getElementById('codigo-descuento').checked;
+  const el = document.getElementById('chapa-resultado');
+  if (!nid) { el.innerHTML = ''; return; }
+
+  const lastDigit = parseInt(nid[nid.length - 1]);
+  if (isNaN(lastDigit)) { el.innerHTML = ''; return; }
+  const esPar = lastDigit % 2 === 0;
+
+  if (descuento) {
+    el.innerHTML = `
+      <div class="bg-amber-50 border border-amber-200 rounded-2xl p-4">
+        <p class="text-sm font-bold text-amber-800">Precio Desglosado — Código de descuento</p>
+        <p class="text-xs text-amber-600 mt-1">Con código de descuento siempre aplica precio desglosado: <strong>sumar +$3,500 MXN</strong> al momento de la oferta, sin importar si el NID es par o impar.</p>
+      </div>`;
+    return;
+  }
+
+  if (esPar) {
+    el.innerHTML = `
+      <div class="bg-amber-50 border border-amber-200 rounded-2xl p-4">
+        <p class="text-sm font-bold text-amber-800">NID par → Precio Desglosado</p>
+        <p class="text-xs text-amber-600 mt-1">El precio base se muestra sin chapa. <strong>Agregar $3,500 MXN</strong> al momento de ofertar.</p>
+      </div>`;
+  } else {
+    el.innerHTML = `
+      <div class="bg-green-50 border border-green-200 rounded-2xl p-4">
+        <p class="text-sm font-bold text-green-800">NID impar → Precio Integrado</p>
+        <p class="text-xs text-green-600 mt-1">El precio publicado ya incluye los $3,500 MXN de la chapa. Oferta normal sobre el precio total.</p>
+      </div>`;
+  }
+}
+</script>
+</body>
+</html>

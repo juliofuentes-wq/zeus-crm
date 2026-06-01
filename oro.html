@@ -1,0 +1,1560 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CRM Buyers ORO</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="https://www.gstatic.com/charts/loader.js"></script>
+<script>
+tailwind.config = {
+  darkMode: 'class',
+  theme: { extend: { colors: {
+    surface: '#1a1d27', surface2: '#11131d', border: 'rgba(255,255,255,0.08)',
+    gn: '#4ade80', am: '#fbbf24', rd: '#f87171', bl: '#60a5fa', pu: '#a78bfa'
+  }}}
+}
+</script>
+<style>
+  body { background: #0f1117; }
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: #0f1117; }
+  ::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
+  .chart-wrap { position: relative; }
+  .nav-btn { transition: all .15s; }
+  .nav-btn.active { background: rgba(251,191,36,.15); border-color: rgba(251,191,36,.4); color: #fbbf24; }
+  .nav-btn:hover:not(.active) { background: rgba(255,255,255,.05); }
+  .card { background: #1a1d27; border: .5px solid rgba(255,255,255,.08); border-radius: 12px; }
+  .fade { animation: fadein .25s ease; }
+  @keyframes fadein { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
+  .pill { display:inline-block; font-size:11px; font-weight:500; padding:2px 10px; border-radius:20px; }
+  .pill-g { background:rgba(74,222,128,.15); color:#4ade80; }
+  .pill-a { background:rgba(251,191,36,.15); color:#fbbf24; }
+  .pill-r { background:rgba(248,113,113,.15); color:#f87171; }
+  .pill-b { background:rgba(96,165,250,.15); color:#60a5fa; }
+  #toast { position:fixed; bottom:20px; right:20px; z-index:999; transition:opacity .3s; }
+  .nota-item { border-left: 2px solid rgba(255,255,255,0.08); padding-left: 10px; }
+  .nota-item:hover { border-left-color: #fbbf24; }
+  .sync-pulse { animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+  @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+  .oro-glow { box-shadow: 0 0 0 1px rgba(251,191,36,.15); }
+</style>
+</head>
+<body class="text-gray-100 min-h-screen">
+
+<!-- TOAST -->
+<div id="toast" class="opacity-0 pointer-events-none">
+  <div class="bg-gray-800 border border-gray-700 rounded-xl px-4 py-2 text-sm text-gray-300 shadow-xl" id="toast-msg"></div>
+</div>
+
+<!-- LAYOUT -->
+<div class="flex h-screen overflow-hidden">
+
+  <!-- SIDEBAR -->
+  <aside class="w-56 flex-shrink-0 bg-gray-900 border-r border-gray-800 flex flex-col overflow-hidden">
+    <div class="p-4 border-b border-gray-800">
+      <div class="flex items-center gap-2">
+        <span class="text-xs font-bold px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-400 tracking-widest">ORO</span>
+      </div>
+      <div class="text-base font-semibold text-white mt-1.5">CRM Buyers ORO</div>
+      <div class="text-xs text-gray-500 mt-0.5">Equipo Oro</div>
+    </div>
+
+    <!-- Nav -->
+    <nav class="flex-1 overflow-y-auto p-2 space-y-1" id="nav"></nav>
+
+    <!-- Footer -->
+    <div class="p-3 border-t border-gray-800 space-y-1">
+      <button onclick="syncSheet()" class="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-gray-400 hover:text-white hover:bg-gray-800 transition">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+        Sincronizar Sheet
+      </button>
+      <div class="flex items-center gap-2 px-3 py-1">
+        <div class="w-1.5 h-1.5 rounded-full bg-green-400" id="sync-dot"></div>
+        <span class="text-xs text-gray-600" id="sync-label">Demo data</span>
+      </div>
+      <div class="text-xs text-gray-700 px-3" id="sync-ts"></div>
+      <button onclick="openSetupModal()" id="as-config-btn" class="w-full text-left px-3 py-1.5 rounded-lg text-xs transition mt-1">
+        ⚡ Configurar conexión Sheet
+      </button>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="flex-1 overflow-y-auto">
+    <!-- Top bar -->
+    <header class="sticky top-0 z-10 bg-gray-900/90 backdrop-blur border-b border-gray-800 px-6 py-3 flex items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <span class="text-sm font-medium text-white" id="page-title">Equipo Oro</span>
+        <span class="pill pill-a text-xs" id="page-badge">130 meta</span>
+      </div>
+      <div class="flex items-center gap-3">
+        <select id="mes-selector" onchange="switchMes(this.value)" class="text-xs bg-gray-900 border border-yellow-500/40 rounded-lg px-3 py-1.5 text-yellow-300 font-medium focus:outline-none focus:border-yellow-400">
+          <option value="mayo-2026" selected>Mayo 2026</option>
+          <option value="junio-2026">Junio 2026</option>
+          <option value="julio-2026">Julio 2026</option>
+        </select>
+        <div class="w-px h-4 bg-gray-700"></div>
+        <select id="filter-semana" onchange="applyFilters()" class="text-xs bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-gray-300 focus:outline-none focus:border-yellow-500">
+          <option value="all">Todas las semanas</option>
+        </select>
+        <select id="filter-canal" onchange="applyFilters()" class="text-xs bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-gray-300 focus:outline-none focus:border-yellow-500">
+          <option value="all">Todos los canales</option>
+          <option value="ibuyer">Ibuyer</option>
+          <option value="brokerage">Brokerage</option>
+          <option value="inmobiliaria">Inmobiliaria</option>
+        </select>
+        <select id="filter-status" onchange="applyFilters()" class="text-xs bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-gray-300 focus:outline-none focus:border-yellow-500">
+          <option value="all">Todos los semáforos</option>
+          <option value="verde">🟢 Verde</option>
+          <option value="amarillo">🟡 Amarillo</option>
+          <option value="rojo">🔴 Rojo</option>
+        </select>
+        <button id="btn-actualizar" onclick="manualSync()" class="text-xs bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 px-3 py-1.5 rounded-lg hover:bg-yellow-500/20 transition flex items-center gap-1">
+          <svg id="btn-sync-icon" class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+          <span id="btn-sync-label">Actualizar</span>
+        </button>
+        <span class="text-xs text-gray-600" id="ts"></span>
+      </div>
+    </header>
+
+    <!-- Content -->
+    <div class="p-6" id="content"></div>
+  </main>
+</div>
+
+<script>
+// ─── CHART.JS DEFAULTS ───────────────────────────────────────────────────────
+Chart.defaults.color = '#9ca3af';
+Chart.defaults.borderColor = 'rgba(255,255,255,0.06)';
+Chart.defaults.font.family = '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+
+// ─── GOOGLE CHARTS INIT ──────────────────────────────────────────────────────
+let _gchartsReady = false;
+if (window.google && window.google.charts) {
+  google.charts.load('current', {packages: ['corechart']});
+  google.charts.setOnLoadCallback(() => { _gchartsReady = true; setTimeout(syncSheet, 100); });
+}
+
+// ─── PERIODOS ────────────────────────────────────────────────────────────────
+const SHEET_ID_GLOBAL = '1p_AcDoteeSGnnN6H3rr87n7Rt5hYimW7c9toqS4BUMg';
+const PERIODOS = [
+  { key:'mayo-2026',  label:'Mayo 2026',  tab:'Oferta mayo 2026',  funnelTab:'Funnel y metas mayo 2026',  metaEquipo:130, diasRest:0, cierreLabel:'', semanas:['1 (5-11 may)','2 (12-18 may)','3 (19-25 may)','4 (26-1 jun)'] },
+  { key:'junio-2026', label:'Junio 2026', tab:'Oferta junio 2026', funnelTab:'Funnel y metas junio 2026', metaEquipo:130, diasRest:0, cierreLabel:'', semanas:['1','2','3','4'] },
+  { key:'julio-2026', label:'Julio 2026', tab:'Oferta julio 2026', funnelTab:'Funnel y metas julio 2026', metaEquipo:130, diasRest:0, cierreLabel:'', semanas:['1','2','3','4'] },
+];
+let currentPeriodoKey = 'mayo-2026';
+function getPeriodo() { return PERIODOS.find(p => p.key === currentPeriodoKey) || PERIODOS[0]; }
+
+// ─── CONSTANTS ───────────────────────────────────────────────────────────────
+const META_EQUIPO = 130;
+let DIAS_REST = 0;
+let SEMANAS = ['1 (5-11 may)','2 (12-18 may)','3 (19-25 may)','4 (26-1 jun)'];
+const COLORES = { verde:'#4ade80', amarillo:'#fbbf24', rojo:'#f87171', azul:'#60a5fa', purpura:'#a78bfa', gris:'#6b7280' };
+const LS_NOTAS_PREFIX = 'oro_nota_';
+const LS_AS_URL = 'oro_as_url';
+const PROXY_URL = 'http://127.0.0.1:8765';
+function getAsUrl() { return localStorage.getItem(LS_AS_URL) || ''; }
+function saveAsUrl(val) {
+  val = (val || '').trim();
+  localStorage.setItem(LS_AS_URL, val);
+}
+
+function fetchSheetProxy(tab) {
+  return new Promise((resolve, reject) => {
+    const cb = '_prx_' + Date.now();
+    const timer = setTimeout(() => {
+      delete window[cb];
+      if (sc.parentNode) sc.parentNode.removeChild(sc);
+      reject(new Error('Proxy timeout'));
+    }, 12000);
+    window[cb] = function(data) {
+      clearTimeout(timer);
+      delete window[cb];
+      if (sc.parentNode) sc.parentNode.removeChild(sc);
+      if (!data.ok) { reject(new Error(data.error || 'Error del proxy')); return; }
+      resolve(data.rows);
+    };
+    const sc = document.createElement('script');
+    sc.src = PROXY_URL + '/api/sheet?tab=' + encodeURIComponent(tab) + '&callback=' + cb;
+    sc.onerror = () => { clearTimeout(timer); delete window[cb]; reject(new Error('Proxy no disponible')); };
+    document.head.appendChild(sc);
+  });
+}
+
+// ─── SNAPSHOT MAYO 2026 (metas Equipo Oro) ───────────────────────────────────
+const DB_MAYO_2026 = [
+  { name:'Karla',     meta:30, cierres:25, visitas:199, ofertas:42, contratos:25, ibuyer:10, brokerage:11, inmobiliaria:3,  franquicia:1, semanas:[3,7,11,4], transito:8 },
+  { name:'Roberto',   meta:20, cierres:19, visitas:176, ofertas:25, contratos:19, ibuyer:6,  brokerage:4,  inmobiliaria:8,  franquicia:1, semanas:[6,3,6,4],  transito:1 },
+  { name:'Fredy',     meta:20, cierres:15, visitas:182, ofertas:23, contratos:15, ibuyer:8,  brokerage:5,  inmobiliaria:1,  franquicia:1, semanas:[3,4,7,1],  transito:4 },
+  { name:'Francisco', meta:8,  cierres:6,  visitas:57,  ofertas:8,  contratos:6,  ibuyer:4,  brokerage:0,  inmobiliaria:2,  franquicia:0, semanas:[1,1,1,3],  transito:0 },
+  { name:'Andrea',    meta:16, cierres:11, visitas:291, ofertas:17, contratos:11, ibuyer:7,  brokerage:1,  inmobiliaria:3,  franquicia:0, semanas:[2,3,3,3],  transito:2 },
+  { name:'Claudia',   meta:16, cierres:11, visitas:338, ofertas:19, contratos:11, ibuyer:8,  brokerage:1,  inmobiliaria:2,  franquicia:0, semanas:[1,3,4,3],  transito:2 },
+  { name:'Alejandro', meta:16, cierres:10, visitas:163, ofertas:13, contratos:10, ibuyer:1,  brokerage:4,  inmobiliaria:4,  franquicia:1, semanas:[3,3,2,2],  transito:2 },
+  { name:'Uriel',     meta:4,  cierres:0,  visitas:139, ofertas:1,  contratos:0,  ibuyer:0,  brokerage:0,  inmobiliaria:0,  franquicia:0, semanas:[0,0,0,0],  transito:0 },
+];
+const DB_SNAPSHOTS = { 'mayo-2026': DB_MAYO_2026 };
+
+function dbTemplate() {
+  return DB_MAYO_2026.map(b => ({
+    ...b, cierres:0, visitas:0, ofertas:0, contratos:0,
+    ibuyer:0, brokerage:0, inmobiliaria:0, franquicia:0,
+    semanas:[0,0,0,0], transito:0
+  }));
+}
+
+function switchMes(key) {
+  if (key === currentPeriodoKey) return;
+  currentPeriodoKey = key;
+  const p = getPeriodo();
+  DIAS_REST = p.diasRest;
+  SEMANAS   = p.semanas;
+  DB.length = 0;
+  const snap = DB_SNAPSHOTS[key];
+  (snap || dbTemplate()).forEach(r => DB.push({...r}));
+  window.EN_PROCESO_TIPOS = {};
+  window.NIDS_DATA = snap ? window.NIDS_DATA_MAYO : {};
+  document.getElementById('mes-selector').value = key;
+  buildSemanaFilter();
+  currentView = 'equipo';
+  refreshView();
+  resetSyncInterval();
+  setTimeout(syncSheet, 300);
+}
+
+function buildSemanaFilter() {
+  const sel = document.getElementById('filter-semana');
+  if (!sel) return;
+  sel.innerHTML = '<option value="all">Todas las semanas</option>' +
+    SEMANAS.map((s, i) => `<option value="${i}">Semana ${i + 1}${s !== String(i+1) ? ' (' + s + ')' : ''}</option>`).join('');
+}
+
+// ─── EN PROCESO POR TIPO ──────────────────────────────────────────────────────
+window.EN_PROCESO_TIPOS = { 'Ibuyer': 8, 'Desarrollo': 6, 'Inmobiliaria': 5, 'Franquicia/inmo': 1 };
+
+// ─── NIDS DATA MAYO 2026 ──────────────────────────────────────────────────────
+window.NIDS_DATA_MAYO = {
+  'Karla': [
+    {tipo:'Desarrollo', display:'yiyolas22@yahoo.com'},
+    {tipo:'Desarrollo', display:'ec7539862@gmail.com'},
+    {tipo:'Desarrollo', display:'ac8042466@gmail.com'},
+    {tipo:'Desarrollo', display:'pequeli2@gmail.com'},
+    {tipo:'Desarrollo', display:'lopezalydonoyomi@gmail.com'},
+    {tipo:'Desarrollo', display:'antonioamadoralarcon20@gmail.com'},
+    {tipo:'Desarrollo', display:'lopezalydonoyomi@gmail.com'},
+    {tipo:'Desarrollo', display:'aguiesme95@gmail.com'},
+    {tipo:'Desarrollo', display:'paozuapa1930@gmail.com'},
+    {tipo:'Desarrollo', display:'nachoizcalli2@gmail.com'},
+    {tipo:'Desarrollo', display:'maguisa2004.mdf@gmail.com'},
+    {tipo:'Franquicia/inmo', display:'60258743170'},
+    {tipo:'Ibuyer', display:'39128482580'},
+    {tipo:'Ibuyer', display:'41897668477'},
+    {tipo:'Ibuyer', display:'37492356616'},
+    {tipo:'Ibuyer', display:'41697437816'},
+    {tipo:'Ibuyer', display:'47168808558'},
+    {tipo:'Ibuyer', display:'36631826283'},
+    {tipo:'Ibuyer', display:'9834940931'},
+    {tipo:'Ibuyer', display:'32344712967'},
+    {tipo:'Ibuyer', display:'29037291175'},
+    {tipo:'Ibuyer', display:'51936814428'},
+    {tipo:'Inmobiliaria', display:'49160406573'},
+    {tipo:'Inmobiliaria', display:'54250268457'},
+  ],
+  'Roberto': [
+    {tipo:'Desarrollo', display:'limonandres.98@gmail.com'},
+    {tipo:'Desarrollo', display:'pintormih@gmail.com'},
+    {tipo:'Desarrollo', display:'fergtzvjob@gmail.com'},
+    {tipo:'Desarrollo', display:'jair29gh@gmail.com'},
+    {tipo:'Ibuyer', display:'39757749862'},
+    {tipo:'Ibuyer', display:'51685719892'},
+    {tipo:'Ibuyer', display:'30676919447'},
+    {tipo:'Ibuyer', display:'36103749794'},
+    {tipo:'Ibuyer', display:'56213931629'},
+    {tipo:'Ibuyer', display:'54637818228'},
+    {tipo:'Inmobiliaria', display:'48941168674'},
+    {tipo:'Inmobiliaria', display:'40676393583'},
+    {tipo:'Inmobiliaria', display:'56557357227'},
+    {tipo:'Inmobiliaria', display:'39989496871'},
+    {tipo:'Inmobiliaria', display:'59864423986'},
+    {tipo:'Inmobiliaria', display:'41193305611'},
+    {tipo:'Inmobiliaria', display:'41781713260'},
+    {tipo:'Inmobiliaria', display:'57948814693'},
+  ],
+  'Fredy': [
+    {tipo:'Desarrollo', display:'yayi_06_09@hotmail.com'},
+    {tipo:'Desarrollo', display:'blar_dony@hotmail.com'},
+    {tipo:'Desarrollo', display:'thefreekd@hotmail.com'},
+    {tipo:'Desarrollo', display:'ingenierojuancarlos17@gmail.com'},
+    {tipo:'Desarrollo', display:'andres08202015@gmail.com'},
+    {tipo:'Franquicia/inmo', display:'59150229361'},
+    {tipo:'Ibuyer', display:'50307713639'},
+    {tipo:'Ibuyer', display:'46305473422'},
+    {tipo:'Ibuyer', display:'57945363546'},
+    {tipo:'Ibuyer', display:'42702489609'},
+    {tipo:'Ibuyer', display:'28225457530'},
+    {tipo:'Ibuyer', display:'10969002846'},
+    {tipo:'Ibuyer', display:'56784696455'},
+    {tipo:'Ibuyer', display:'33718268986'},
+    {tipo:'Inmobiliaria', display:'38905469340'},
+  ],
+  'Francisco': [
+    {tipo:'Ibuyer', display:'33106188127'},
+    {tipo:'Ibuyer', display:'33152863010'},
+    {tipo:'Ibuyer', display:'43532846240'},
+    {tipo:'Ibuyer', display:'58233280293'},
+    {tipo:'Inmobiliaria', display:'36826741065'},
+  ],
+  'Andrea': [
+    {tipo:'Desarrollo', display:'critzelcruz@gmail.com'},
+    {tipo:'Ibuyer', display:'42832512519'},
+    {tipo:'Ibuyer', display:'54618752848'},
+    {tipo:'Ibuyer', display:'41456444251'},
+    {tipo:'Ibuyer', display:'54250570875'},
+    {tipo:'Ibuyer', display:'40664981329'},
+    {tipo:'Ibuyer', display:'29731313454'},
+    {tipo:'Ibuyer', display:'44935873696'},
+    {tipo:'Inmobiliaria', display:'57558842762'},
+    {tipo:'Inmobiliaria', display:'57595655320'},
+  ],
+  'Claudia': [
+    {tipo:'Ibuyer', display:'40543425119'},
+    {tipo:'Ibuyer', display:'47642857346'},
+    {tipo:'Ibuyer', display:'22597567122'},
+    {tipo:'Ibuyer', display:'34607150734'},
+    {tipo:'Ibuyer', display:'49235864642'},
+    {tipo:'Ibuyer', display:'57206841441'},
+    {tipo:'Ibuyer', display:'19865028271'},
+    {tipo:'Ibuyer', display:'40169309307'},
+    {tipo:'Inmobiliaria', display:'54627077158'},
+    {tipo:'Desarrollo', display:'dianagarnica130@gmail.com'},
+  ],
+  'Alejandro': [
+    {tipo:'Desarrollo', display:'jes3997@gmail.com'},
+    {tipo:'Desarrollo', display:'ramirezisis146@gmail.com'},
+    {tipo:'Desarrollo', display:'Mvargasr@aeromexico.com'},
+    {tipo:'Desarrollo', display:'Victordaniellopezramos@gmail.com'},
+    {tipo:'Franquicia/inmo', display:'56999029155'},
+    {tipo:'Ibuyer', display:'38324381448'},
+    {tipo:'Inmobiliaria', display:'56283662202'},
+    {tipo:'Inmobiliaria', display:'56280939836'},
+    {tipo:'Inmobiliaria', display:'48484896902'},
+  ],
+  'Uriel': [],
+};
+window.NIDS_DATA = window.NIDS_DATA_MAYO;
+
+// ─── DATA ─────────────────────────────────────────────────────────────────────
+let DB = DB_MAYO_2026.map(r => ({...r}));
+let activeCharts = {};
+let currentView = 'equipo';
+let currentFilter = { semana:'all', canal:'all', status:'all' };
+
+// ─── UTILS ───────────────────────────────────────────────────────────────────
+const pct = (a,b) => b ? ((a/b)*100).toFixed(1)+'%' : '0%';
+const num = n => typeof n === 'number' ? n : 0;
+
+function semaforo(buyer) {
+  const alcance = buyer.cierres / buyer.meta * 100;
+  if (alcance >= 85) return 'verde';
+  if (alcance >= 65) return 'amarillo';
+  return 'rojo';
+}
+
+function alcancePct(buyer) {
+  return Math.min((buyer.cierres / buyer.meta) * 100, 130).toFixed(1);
+}
+
+function toast(msg, duration=3000) {
+  const t = document.getElementById('toast');
+  document.getElementById('toast-msg').textContent = msg;
+  t.style.opacity = '1'; t.style.pointerEvents = 'auto';
+  setTimeout(() => { t.style.opacity = '0'; t.style.pointerEvents = 'none'; }, duration);
+}
+
+function updateTs() {
+  const now = new Date();
+  document.getElementById('ts').textContent =
+    now.toLocaleDateString('es-MX',{day:'numeric',month:'short'}) + ' · ' +
+    now.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
+}
+
+function destroyCharts() {
+  Object.values(activeCharts).forEach(c => { try { c.destroy(); } catch(e){} });
+  activeCharts = {};
+}
+
+function getSheetId() { return SHEET_ID_GLOBAL; }
+
+// ─── NOTAS ────────────────────────────────────────────────────────────────────
+function saveNota(buyerName, texto) {
+  if (!texto.trim()) return null;
+  const key = LS_NOTAS_PREFIX + buyerName;
+  const arr = JSON.parse(localStorage.getItem(key) || '[]');
+  arr.unshift({ texto: texto.trim(), ts: new Date().toISOString() });
+  const trimmed = arr.slice(0, 20);
+  localStorage.setItem(key, JSON.stringify(trimmed));
+  return trimmed;
+}
+
+function getNotas(buyerName) {
+  return JSON.parse(localStorage.getItem(LS_NOTAS_PREFIX + buyerName) || '[]');
+}
+
+function deleteNota(buyerName, idx) {
+  const key = LS_NOTAS_PREFIX + buyerName;
+  const arr = JSON.parse(localStorage.getItem(key) || '[]');
+  arr.splice(idx, 1);
+  localStorage.setItem(key, JSON.stringify(arr));
+  renderNotasList(buyerName);
+}
+
+function addNota(buyerName) {
+  const input = document.getElementById('nota-input');
+  const texto = input?.value?.trim();
+  if (!texto) return;
+  saveNota(buyerName, texto);
+  input.value = '';
+  renderNotasList(buyerName);
+  toast(`Nota guardada para ${buyerName}`);
+  buildNav();
+}
+
+function renderNotasList(buyerName) {
+  const list = document.getElementById('notas-list');
+  if (!list) return;
+  const notas = getNotas(buyerName);
+  if (!notas.length) {
+    list.innerHTML = '<div class="text-xs text-gray-600 italic py-2">Sin notas aún.</div>';
+    return;
+  }
+  list.innerHTML = notas.map((n, i) => {
+    const d = new Date(n.ts);
+    const fmt = d.toLocaleDateString('es-MX',{day:'numeric',month:'short',year:'numeric'}) +
+      ' · ' + d.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
+    const escaped = n.texto.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    return `<div class="nota-item flex justify-between items-start gap-2 py-2 group transition">
+      <div class="flex-1 min-w-0">
+        <div class="text-xs text-gray-300 leading-relaxed">${escaped}</div>
+        <div class="text-xs text-gray-600 mt-0.5">${fmt}</div>
+      </div>
+      <button onclick="deleteNota('${buyerName}',${i})"
+        class="opacity-0 group-hover:opacity-100 transition text-gray-600 hover:text-red-400 text-xs px-1 flex-shrink-0">✕</button>
+    </div>`;
+  }).join('');
+}
+
+function notasSection(buyerName) {
+  const notas = getNotas(buyerName);
+  const count = notas.length;
+  return `<div class="card p-5">
+    <div class="flex items-center justify-between mb-3">
+      <div class="text-sm font-medium text-white">Notas de seguimiento</div>
+      ${count ? `<span class="pill pill-a">${count} nota${count !== 1 ? 's' : ''}</span>` : ''}
+    </div>
+    <div class="flex gap-2 mb-4">
+      <input id="nota-input" type="text"
+        placeholder="Escribe una nota y presiona Enter…"
+        class="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-yellow-500 transition"
+        onkeydown="if(event.key==='Enter'){addNota('${buyerName}');}">
+      <button onclick="addNota('${buyerName}')"
+        class="px-4 py-2 bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 text-sm rounded-lg hover:bg-yellow-500/20 transition font-medium whitespace-nowrap">
+        + Guardar
+      </button>
+    </div>
+    <div class="space-y-0 divide-y divide-gray-800" id="notas-list">
+      ${count ? '' : '<div class="text-xs text-gray-600 italic py-2">Sin notas aún.</div>'}
+    </div>
+  </div>`;
+}
+
+// ─── PANEL COMISIONES ────────────────────────────────────────────────────────
+function alertaBanner() {
+  const rows = DB.map(b => {
+    const umbral = Math.ceil(b.meta * 0.66);
+    const faltan = umbral - b.cierres;
+    const ok = faltan <= 0;
+    return `<div class="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-white/5 cursor-pointer transition" onclick="navigate('${b.name}')">
+      <span class="text-sm text-gray-300">${b.name}</span>
+      ${ok
+        ? `<span class="text-xs text-green-500 font-medium">✓ Comisión lista</span>`
+        : `<span class="text-xs text-gray-400">Faltan <span class="text-white font-semibold">${faltan}</span> venta${faltan > 1 ? 's' : ''}</span>`
+      }
+    </div>`;
+  }).join('');
+  return `<div class="card p-4 mb-2">
+    <div class="flex items-center justify-between mb-1">
+      <span class="text-sm font-medium text-gray-300">Comisiones · meta al 66%</span>
+      ${DIAS_REST > 0 ? `<span class="text-xs text-gray-600">${DIAS_REST} días restantes</span>` : ''}
+    </div>
+    <div class="grid grid-cols-2 gap-x-4">${rows}</div>
+  </div>`;
+}
+
+// ─── CHART FACTORY ───────────────────────────────────────────────────────────
+const TOOLTIP = {
+  backgroundColor:'#1a1d27', borderColor:'rgba(255,255,255,0.12)', borderWidth:1,
+  titleColor:'#f0f2f5', bodyColor:'#9ca3af', padding:10, cornerRadius:8,
+};
+
+function makeChart(id, config) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (activeCharts[id]) { try { activeCharts[id].destroy(); } catch(e){} }
+  config.options = config.options || {};
+  config.options.responsive = true;
+  config.options.maintainAspectRatio = false;
+  if (!config.options.plugins) config.options.plugins = {};
+  config.options.plugins.tooltip = { ...TOOLTIP, ...(config.options.plugins.tooltip || {}) };
+  config.options.plugins.legend = config.options.plugins.legend || { labels:{ color:'#9ca3af', padding:12, boxWidth:12 } };
+  activeCharts[id] = new Chart(el, config);
+  return activeCharts[id];
+}
+
+// ─── FILTERED DATA ────────────────────────────────────────────────────────────
+function getFiltered(buyer) {
+  const f = currentFilter;
+  let cierres = buyer.cierres, ibuyer = buyer.ibuyer, brokerage = buyer.brokerage, inmobiliaria = buyer.inmobiliaria;
+  if (f.semana !== 'all') {
+    const idx = parseInt(f.semana);
+    const factor = buyer.semanas[idx] / (buyer.semanas.reduce((a,b)=>a+b,0)||1);
+    cierres = buyer.semanas[idx];
+    ibuyer = Math.round(buyer.ibuyer * factor);
+    brokerage = Math.round(buyer.brokerage * factor);
+    inmobiliaria = Math.round(buyer.inmobiliaria * factor);
+  }
+  if (f.canal === 'ibuyer')       { cierres = ibuyer; brokerage = 0; inmobiliaria = 0; }
+  if (f.canal === 'brokerage')    { cierres = brokerage; ibuyer = 0; inmobiliaria = 0; }
+  if (f.canal === 'inmobiliaria') { cierres = inmobiliaria; ibuyer = 0; brokerage = 0; }
+  return { ...buyer, cierres, ibuyer, brokerage, inmobiliaria };
+}
+
+function filteredDB() {
+  let data = DB.map(getFiltered);
+  if (currentFilter.status !== 'all') data = data.filter(b => semaforo(DB.find(x=>x.name===b.name)) === currentFilter.status);
+  return data;
+}
+
+// ─── NAV ─────────────────────────────────────────────────────────────────────
+function buildNav() {
+  const nav = document.getElementById('nav');
+  nav.innerHTML = '';
+  const btn = (label, view, icon='', badge='') => {
+    const b = document.createElement('button');
+    b.className = 'nav-btn w-full text-left flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-gray-400 border border-transparent';
+    b.dataset.view = view;
+    const badgeHtml = badge ? `<span class="ml-auto text-xs bg-yellow-500/20 text-yellow-400 rounded-full px-1.5">${badge}</span>` : '';
+    b.innerHTML = `<span class="text-base leading-none">${icon}</span><span class="flex-1">${label}</span>${badgeHtml}`;
+    b.onclick = () => navigate(view);
+    nav.appendChild(b);
+  };
+  btn('Equipo Oro', 'equipo', '🏆');
+  DB.forEach(b => {
+    const sem = semaforo(b);
+    const icon = sem==='verde'?'🟢':sem==='amarillo'?'🟡':'🔴';
+    const notasCount = getNotas(b.name).length;
+    btn(b.name, b.name, icon, notasCount || '');
+  });
+}
+
+function navigate(view) {
+  currentView = view;
+  document.querySelectorAll('.nav-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.view === view);
+  });
+  destroyCharts();
+  if (view === 'equipo') renderEquipo();
+  else {
+    const buyer = DB.find(b => b.name === view);
+    if (buyer) renderBuyer(buyer);
+  }
+}
+
+// ─── PROCESADO POR SUBTIPO ────────────────────────────────────────────────────
+function procesoBySub() {
+  const t = window.EN_PROCESO_TIPOS || {};
+  const parts = [
+    t['Ibuyer']          ? `${t['Ibuyer']} iBuyer`        : '',
+    t['Inmobiliaria']    ? `${t['Inmobiliaria']} Inmo`     : '',
+    t['Desarrollo']      ? `${t['Desarrollo']} Desarrollo` : '',
+    t['Franquicia/inmo'] ? `${t['Franquicia/inmo']} Franq` : '',
+  ].filter(Boolean);
+  return parts.length ? parts.join(' · ') : 'por cerrarse';
+}
+
+// ─── EQUIPO VIEW ──────────────────────────────────────────────────────────────
+function renderEquipo() {
+  document.getElementById('page-title').textContent = 'Equipo Oro';
+  const data = filteredDB();
+  const totalCierres = data.reduce((s,b)=>s+b.cierres, 0);
+  const totalTransito = DB.reduce((s,b)=>s+b.transito, 0);
+  const metaEquipo = getPeriodo().metaEquipo;
+  const alcEquipo = (totalCierres / metaEquipo * 100).toFixed(1);
+  const semEq = alcEquipo>=85?'verde':alcEquipo>=65?'amarillo':'rojo';
+  const colEq = semEq==='verde'?COLORES.verde:semEq==='amarillo'?COLORES.amarillo:COLORES.rojo;
+
+  document.getElementById('page-badge').textContent = `${totalCierres} / ${metaEquipo} cierres`;
+  document.getElementById('page-badge').className = `pill pill-${semEq==='verde'?'g':semEq==='amarillo'?'a':'r'} text-xs`;
+
+  document.getElementById('content').innerHTML = `
+  <div class="fade space-y-5">
+    ${alertaBanner()}
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+      ${kpiCard('Cierres V1', totalCierres, 'de '+metaEquipo+' meta', colEq)}
+      ${kpiCard('Alcance equipo', alcEquipo+'%', 'de meta '+metaEquipo, colEq)}
+      ${kpiCard('Gap a meta', metaEquipo-totalCierres, 'cierres restantes', COLORES.rojo)}
+      ${kpiCard('En proceso', totalTransito, procesoBySub(), COLORES.amarillo)}
+      ${kpiCard('Días restantes', DIAS_REST, getPeriodo().cierreLabel||'—', COLORES.azul)}
+    </div>
+    ${(() => {
+      const tv = data.reduce((s,b)=>s+b.visitas,0);
+      const to = data.reduce((s,b)=>s+b.ofertas,0);
+      const convVO = tv>0 ? (to/tv*100).toFixed(1)+'%' : '—';
+      const convOC = to>0 ? (totalCierres/to*100).toFixed(1)+'%' : '—';
+      const convVC = tv>0 ? (totalCierres/tv*100).toFixed(1)+'%' : '—';
+      return `<div class="card p-5">
+        <div class="text-sm font-medium text-white mb-4">Conversión del equipo</div>
+        <div class="grid grid-cols-3 divide-x divide-gray-700 text-center">
+          <div class="px-4">
+            <div class="text-2xl font-bold" style="color:${COLORES.azul}">${convVO}</div>
+            <div class="text-xs text-gray-400 mt-1">Visita → Oferta</div>
+            <div class="text-xs text-gray-500 mt-0.5">${to} ofertas de ${tv} visitas</div>
+          </div>
+          <div class="px-4">
+            <div class="text-2xl font-bold" style="color:${COLORES.verde}">${convOC}</div>
+            <div class="text-xs text-gray-400 mt-1">Oferta → Cierre</div>
+            <div class="text-xs text-gray-500 mt-0.5">${totalCierres} cierres de ${to} ofertas</div>
+          </div>
+          <div class="px-4">
+            <div class="text-2xl font-bold" style="color:#a78bfa">${convVC}</div>
+            <div class="text-xs text-gray-400 mt-1">Visita → Cierre</div>
+            <div class="text-xs text-gray-500 mt-0.5">${totalCierres} cierres de ${tv} visitas</div>
+          </div>
+        </div>
+      </div>`;
+    })()}
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div class="card p-5">
+        <div class="text-sm font-medium text-white mb-4">Cierres vs Meta — comparativo</div>
+        <div class="chart-wrap" style="height:260px"><canvas id="ch-team-bar"></canvas></div>
+      </div>
+      <div class="card p-5">
+        <div class="text-sm font-medium text-white mb-4">Tendencia semanal</div>
+        <div class="chart-wrap" style="height:260px"><canvas id="ch-team-line"></canvas></div>
+      </div>
+    </div>
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div class="card p-5">
+        <div class="text-sm font-medium text-white mb-4">Distribución por semáforo</div>
+        <div class="chart-wrap" style="height:220px"><canvas id="ch-semaforo"></canvas></div>
+      </div>
+      <div class="card p-5">
+        <div class="text-sm font-medium text-white mb-4">Mix de canales</div>
+        <div class="chart-wrap" style="height:220px"><canvas id="ch-canales"></canvas></div>
+      </div>
+      <div class="card p-5">
+        <div class="text-sm font-medium text-white mb-4">Radar de métricas</div>
+        <div class="chart-wrap" style="height:220px"><canvas id="ch-radar"></canvas></div>
+      </div>
+    </div>
+    <div>
+      <div class="text-xs font-medium text-gray-500 uppercase tracking-widest mb-3">Semáforo individual</div>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3" id="buyer-grid"></div>
+    </div>
+  </div>`;
+
+  buildBuyerGrid(data);
+  drawTeamCharts(data);
+}
+
+function drawTeamCharts(data) {
+  makeChart('ch-team-bar', {
+    type: 'bar',
+    data: {
+      labels: data.map(b=>b.name),
+      datasets: [
+        { label:'Cierres V1', data: data.map(b=>b.cierres), backgroundColor: data.map(b=>{ const s=semaforo(DB.find(x=>x.name===b.name)); return s==='verde'?'rgba(74,222,128,.7)':s==='amarillo'?'rgba(251,191,36,.7)':'rgba(248,113,113,.7)'; }), borderRadius:6, barPercentage:.55 },
+        { label:'Meta', data: data.map(b=>b.meta), backgroundColor:'rgba(255,255,255,.06)', borderRadius:6, barPercentage:.55 },
+      ]
+    },
+    options: { plugins:{ legend:{ position:'bottom' } }, scales:{ x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#6b7280'}}, y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#6b7280'}} } }
+  });
+
+  const topBuyers = [...DB].sort((a,b)=>b.cierres-a.cierres).slice(0,4);
+  const lineColors = [COLORES.verde, COLORES.azul, COLORES.amarillo, COLORES.purpura];
+  makeChart('ch-team-line', {
+    type: 'line',
+    data: {
+      labels: SEMANAS,
+      datasets: topBuyers.map((b,i) => ({
+        label: b.name, data: b.semanas, borderColor: lineColors[i], backgroundColor: lineColors[i]+'20',
+        tension:.4, fill:false, pointRadius:4, pointHoverRadius:6, borderWidth:2
+      }))
+    },
+    options: { plugins:{ legend:{position:'bottom'} }, scales:{ x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#6b7280'}}, y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#6b7280'},beginAtZero:true} } }
+  });
+
+  const verde = data.filter(b=>semaforo(DB.find(x=>x.name===b.name))==='verde').length;
+  const amarillo = data.filter(b=>semaforo(DB.find(x=>x.name===b.name))==='amarillo').length;
+  const rojo = data.filter(b=>semaforo(DB.find(x=>x.name===b.name))==='rojo').length;
+  makeChart('ch-semaforo', {
+    type: 'doughnut',
+    data: { labels:['Verde ✓','Amarillo ⚠','Rojo ✗'], datasets:[{ data:[verde,amarillo,rojo], backgroundColor:[COLORES.verde+'cc',COLORES.amarillo+'cc',COLORES.rojo+'cc'], borderWidth:0, hoverOffset:6 }] },
+    options: { cutout:'68%', plugins:{ legend:{position:'bottom'} } }
+  });
+
+  const totIb = data.reduce((s,b)=>s+b.ibuyer,0);
+  const totBr = data.reduce((s,b)=>s+b.brokerage,0);
+  const totIn = data.reduce((s,b)=>s+b.inmobiliaria,0);
+  const totFr = data.reduce((s,b)=>s+(b.franquicia||0),0);
+  makeChart('ch-canales', {
+    type: 'pie',
+    data: { labels:['iBuyer','Brokerage','Inmobiliaria','Franquicia/inmo'], datasets:[{ data:[totIb,totBr,totIn,totFr], backgroundColor:[COLORES.azul+'cc',COLORES.verde+'cc',COLORES.purpura+'cc','rgba(251,146,60,.85)'], borderWidth:0, hoverOffset:6 }] },
+    options: { plugins:{ legend:{position:'bottom'} } }
+  });
+
+  const normData = data.slice(0,5).map(b=>({
+    name: b.name,
+    vals: [
+      Math.min((b.cierres/b.meta)*100,120),
+      Math.min((b.ibuyer/Math.max(b.cierres,1))*100,100),
+      Math.min((b.brokerage/Math.max(b.cierres,1))*100,100),
+      Math.min((b.cierres/Math.max(b.visitas,1))*100*10,100),
+      parseFloat(alcancePct(DB.find(x=>x.name===b.name)))
+    ]
+  }));
+  makeChart('ch-radar', {
+    type: 'radar',
+    data: {
+      labels: ['Cumplimiento','Mix Ibuyer','Mix Broker','Conversión','vs Meta'],
+      datasets: normData.map((b,i) => ({
+        label: b.name, data: b.vals,
+        borderColor: Object.values(COLORES)[i]+'cc',
+        backgroundColor: Object.values(COLORES)[i]+'15',
+        pointBackgroundColor: Object.values(COLORES)[i],
+        borderWidth:1.5, pointRadius:3
+      }))
+    },
+    options: { scales:{ r:{ grid:{color:'rgba(255,255,255,.06)'}, ticks:{display:false}, pointLabels:{color:'#9ca3af',font:{size:10}}, suggestedMin:0, suggestedMax:120 } }, plugins:{ legend:{position:'bottom'} } }
+  });
+}
+
+function buildBuyerGrid(data) {
+  const grid = document.getElementById('buyer-grid');
+  if (!grid) return;
+  grid.innerHTML = data.map(b => {
+    const sem = semaforo(DB.find(x=>x.name===b.name));
+    const col = sem==='verde'?COLORES.verde:sem==='amarillo'?COLORES.amarillo:COLORES.rojo;
+    const alc = alcancePct(DB.find(x=>x.name===b.name));
+    const pillCls = sem==='verde'?'pill-g':sem==='amarillo'?'pill-a':'pill-r';
+    const umbral = Math.ceil(b.meta*0.66);
+    const comision = b.cierres >= umbral
+      ? '<span class="text-green-500">✓ Comisión lista</span>'
+      : `<span class="text-gray-500">Faltan <span class="text-gray-300 font-medium">${umbral-b.cierres}</span> para comisionar</span>`;
+    const procesoBadge = b.transito > 0 ? `<span class="text-xs text-yellow-400/80">${b.transito} en proceso</span>` : '';
+    const notasCount = getNotas(b.name).length;
+    const notasBadge = notasCount ? `<span class="pill pill-a" style="font-size:10px">${notasCount}</span>` : '';
+    return `<div class="card p-4 cursor-pointer hover:border-yellow-500/30 transition" onclick="navigate('${b.name}')">
+      <div class="h-0.5 rounded-full mb-3" style="background:${col}"></div>
+      <div class="flex justify-between items-start mb-2">
+        <div class="font-medium text-white flex items-center gap-1.5">${b.name} ${notasBadge}</div>
+        <span class="pill ${pillCls}">${sem==='verde'?'🟢':sem==='amarillo'?'🟡':'🔴'} ${alc}%</span>
+      </div>
+      <div class="text-2xl font-semibold mb-1" style="color:${col}">${b.cierres}</div>
+      <div class="text-xs text-gray-500 mb-3">de ${b.meta} · faltan ${Math.max(b.meta-b.cierres,0)} ${procesoBadge}</div>
+      <div class="w-full bg-gray-800 rounded-full h-1.5 mb-2">
+        <div class="h-1.5 rounded-full" style="width:${Math.min(alc,100)}%;background:${col}"></div>
+      </div>
+      <div class="text-xs">${comision}</div>
+    </div>`;
+  }).join('');
+}
+
+// ─── BUYER VIEW ───────────────────────────────────────────────────────────────
+function renderBuyer(buyerRaw) {
+  const buyer = getFiltered(buyerRaw);
+  const sem = semaforo(buyerRaw);
+  const col = sem==='verde'?COLORES.verde:sem==='amarillo'?COLORES.amarillo:COLORES.rojo;
+  const alc = alcancePct(buyerRaw);
+  const pillCls = sem==='verde'?'pill-g':sem==='amarillo'?'pill-a':'pill-r';
+  const umbral = Math.ceil(buyer.meta*0.66);
+  const faltan = Math.max(buyer.meta-buyer.cierres,0);
+  const convVA = buyer.visitas ? ((buyer.ofertas/buyer.visitas)*100).toFixed(1) : 0;
+  const convOC = buyer.ofertas ? ((buyer.cierres/buyer.ofertas)*100).toFixed(1) : 0;
+  const transitoInfo = buyerRaw.transito > 0
+    ? `<span class="pill pill-a">${buyerRaw.transito} contrato${buyerRaw.transito > 1 ? 's' : ''} en proceso</span>`
+    : '';
+
+  document.getElementById('page-title').textContent = buyer.name;
+  document.getElementById('page-badge').textContent = `Meta ${buyer.meta} · ${alc}%`;
+  document.getElementById('page-badge').className = `pill ${pillCls} text-xs`;
+
+  document.getElementById('content').innerHTML = `
+  <div class="fade space-y-5">
+    <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+      ${kpiCard('Cierres V1', buyer.cierres, `de ${buyer.meta} meta`, col)}
+      ${kpiCard('Alcance', alc+'%', `de meta ${buyer.meta}`, col)}
+      ${kpiCard('Faltan para meta', faltan, `${DIAS_REST > 0 ? DIAS_REST+' días restantes' : 'Período cerrado'}`, COLORES.rojo)}
+      ${kpiCard('Comisión 66%', buyer.cierres>=umbral ? '✓ Lista' : `Faltan ${umbral-buyer.cierres}`, buyer.cierres>=umbral ? `necesitaba ${umbral} de ${buyer.meta}` : `necesita ${umbral} · tiene ${buyer.cierres}`, buyer.cierres>=umbral?COLORES.verde:COLORES.amarillo)}
+      ${kpiCard('Conv. Visita → Oferta', convVA+'%', `${buyer.ofertas} ofertas de ${buyer.visitas} visitas`, COLORES.azul)}
+      ${kpiCard('Conv. Oferta → Cierre', convOC+'%', `${buyer.cierres} cierres de ${buyer.ofertas} ofertas`, COLORES.verde)}
+    </div>
+
+    ${buyerRaw.transito > 0 ? `<div class="flex items-center gap-2 px-1">${transitoInfo}<span class="text-xs text-gray-500">contratos firmados que aún no se registran como V1</span></div>` : ''}
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div class="card p-5">
+        <div class="text-sm font-medium text-white mb-1">Cumplimiento vs Meta</div>
+        <div class="text-xs text-gray-500 mb-3">Alcance real vs meta del mes</div>
+        <div class="chart-wrap" style="height:200px"><canvas id="ch-gauge"></canvas></div>
+        <div class="text-center mt-2">
+          <span class="text-2xl font-semibold" style="color:${col}">${alc}%</span>
+        </div>
+      </div>
+      <div class="card p-5 lg:col-span-2">
+        <div class="text-sm font-medium text-white mb-1">Embudo del mes</div>
+        <div class="text-xs text-gray-500 mb-3">Visitas → Ofertas → Contratos → Cierres</div>
+        <div class="chart-wrap" style="height:220px"><canvas id="ch-funnel"></canvas></div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div class="card p-5 lg:col-span-2">
+        <div class="text-sm font-medium text-white mb-1">Tendencia semanal</div>
+        <div class="text-xs text-gray-500 mb-3">Cierres por semana comercial</div>
+        <div class="chart-wrap" style="height:200px"><canvas id="ch-semanas"></canvas></div>
+      </div>
+      <div class="card p-5">
+        <div class="text-sm font-medium text-white mb-1">Cierres por canal</div>
+        <div class="text-xs text-gray-500 mb-3">Mix de producto este mes</div>
+        <div class="chart-wrap" style="height:200px"><canvas id="ch-mix"></canvas></div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div class="card p-5">
+        <div class="text-sm font-medium text-white mb-1">Tasas de conversión</div>
+        <div class="text-xs text-gray-500 mb-3">Eficiencia en cada etapa</div>
+        <div class="chart-wrap" style="height:180px"><canvas id="ch-conv"></canvas></div>
+      </div>
+      <div class="card p-5">
+        <div class="text-sm font-medium text-white mb-3">Métricas clave</div>
+        <div class="space-y-3">
+          ${metricRow('Visitas totales', buyer.visitas, COLORES.azul)}
+          ${metricRow('Ofertas generadas', buyer.ofertas, COLORES.purpura)}
+          ${metricRow('Contratos', buyer.contratos, COLORES.amarillo)}
+          ${metricRow('Cierres V1', buyer.cierres, col)}
+          ${metricRow('Conv. Visita→Oferta', convVA+'%', COLORES.azul, false)}
+          ${metricRow('Conv. Oferta→Cierre', convOC+'%', col, false)}
+        </div>
+      </div>
+    </div>
+
+    ${nidsSection(buyer.name)}
+    ${notasSection(buyer.name)}
+  </div>`;
+
+  renderNotasList(buyer.name);
+  setTimeout(() => { const inp = document.getElementById('nota-input'); if (inp) inp.focus(); }, 300);
+  drawBuyerCharts(buyer, buyerRaw, col);
+}
+
+function drawBuyerCharts(buyer, buyerRaw, col) {
+  const metaReal = buyer.meta;
+
+  makeChart('ch-gauge', {
+    type: 'doughnut',
+    data: { labels:['Alcanzado','Restante'], datasets:[{ data:[Math.min(buyer.cierres,metaReal), Math.max(metaReal-buyer.cierres,0)], backgroundColor:[col+'cc','rgba(255,255,255,.06)'], borderWidth:0, circumference:270, rotation:225, hoverOffset:4 }] },
+    options: { cutout:'72%', plugins:{ legend:{display:false} } }
+  });
+
+  makeChart('ch-funnel', {
+    type: 'bar',
+    data: {
+      labels: ['Visitas','Ofertas','Contratos','Cierres V1'],
+      datasets: [{ data:[buyer.visitas,buyer.ofertas,buyer.contratos,buyer.cierres], backgroundColor:['rgba(96,165,250,.7)','rgba(167,139,250,.7)','rgba(251,191,36,.7)',col+'cc'], borderRadius:6, barPercentage:.55 }]
+    },
+    options: { indexAxis:'y', plugins:{ legend:{display:false} }, scales:{ x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#6b7280'}}, y:{grid:{display:false},ticks:{color:'#9ca3af'}} } }
+  });
+
+  makeChart('ch-semanas', {
+    type: 'bar',
+    data: {
+      labels: SEMANAS,
+      datasets: [
+        { type:'bar', label:'Cierres', data:buyer.semanas, backgroundColor:col+'88', borderRadius:5, barPercentage:.6 },
+        { type:'line', label:'Acumulado', data:buyer.semanas.map((_,i,a)=>a.slice(0,i+1).reduce((s,v)=>s+v,0)), borderColor:col, backgroundColor:col+'20', tension:.4, fill:true, yAxisID:'y2', pointRadius:4, borderWidth:2 }
+      ]
+    },
+    options: { plugins:{ legend:{position:'bottom'} }, scales:{ x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#6b7280'}}, y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#6b7280'},beginAtZero:true,position:'left'}, y2:{display:true,position:'right',grid:{display:false},ticks:{color:'#6b7280'},beginAtZero:true} } }
+  });
+
+  makeChart('ch-mix', {
+    type: 'doughnut',
+    data: { labels:['iBuyer','Brokerage','Inmobiliaria','Franquicia/inmo'], datasets:[{ data:[buyer.ibuyer,buyer.brokerage,buyer.inmobiliaria,buyer.franquicia||0], backgroundColor:[COLORES.azul+'cc',COLORES.verde+'cc',COLORES.purpura+'cc','rgba(251,146,60,.8)'], borderWidth:0, hoverOffset:6 }] },
+    options: { cutout:'55%', plugins:{ legend:{position:'bottom'} } }
+  });
+
+  makeChart('ch-conv', {
+    type: 'bar',
+    data: {
+      labels: ['Visita→Oferta','Oferta→Contrato','Contrato→Cierre','Visita→Cierre'],
+      datasets: [{ data:[
+        buyer.visitas ? +((buyer.ofertas/buyer.visitas)*100).toFixed(1) : 0,
+        buyer.ofertas ? +((buyer.contratos/buyer.ofertas)*100).toFixed(1) : 0,
+        buyer.contratos ? +((buyer.cierres/buyer.contratos)*100).toFixed(1) : 0,
+        buyer.visitas ? +((buyer.cierres/buyer.visitas)*100).toFixed(1) : 0,
+      ], backgroundColor:[COLORES.azul+'88',COLORES.purpura+'88',COLORES.amarillo+'88',col+'88'], borderRadius:5, barPercentage:.55 }]
+    },
+    options: { plugins:{ legend:{display:false} }, scales:{ x:{grid:{display:false},ticks:{color:'#6b7280',font:{size:9}}}, y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#6b7280',callback:v=>v+'%'},beginAtZero:true,max:100} } }
+  });
+}
+
+// ─── NIDS SECTION ────────────────────────────────────────────────────────────
+function nidsSection(buyerName) {
+  const items = (window.NIDS_DATA || {})[buyerName] || [];
+  if (!items.length) return `<div class="card p-4">
+    <div class="text-sm font-medium text-white mb-1">Cierres por NID / Email</div>
+    <div class="text-xs text-gray-600 italic">Sincroniza el Sheet para ver los datos.</div>
+  </div>`;
+
+  const orden = ['Ibuyer','Inmobiliaria','Franquicia/inmo','Desarrollo'];
+  const labels = { 'Ibuyer':'iBuyer — NID', 'Desarrollo':'Desarrollo / Brokerage — Email', 'Inmobiliaria':'Inmobiliaria — NID', 'Franquicia/inmo':'Franquicia/inmo — NID' };
+  const grupos = {};
+  orden.forEach(t => grupos[t] = []);
+  items.forEach(it => { (grupos[it.tipo] = grupos[it.tipo] || []).push(it); });
+
+  const bloques = orden.map(tipo => {
+    const list = grupos[tipo] || [];
+    if (!list.length) return '';
+    const filas = list.map(it =>
+      `<div class="py-1 border-b border-gray-800/40 last:border-0 text-xs text-gray-300 font-mono">${it.display || '—'}</div>`
+    ).join('');
+    return `<div class="mb-4">
+      <div class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">${labels[tipo] || tipo} <span class="text-gray-600 normal-case">(${list.length})</span></div>
+      ${filas}
+    </div>`;
+  }).join('');
+
+  return `<div class="card p-5">
+    <div class="text-sm font-medium text-white mb-3">Cierres por NID / Email · ${buyerName} <span class="text-gray-500 font-normal">${items.length} total</span></div>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-x-8">${bloques}</div>
+  </div>`;
+}
+
+// ─── UI HELPERS ───────────────────────────────────────────────────────────────
+function kpiCard(label, value, sub, color) {
+  return `<div class="card p-4">
+    <div class="text-xs text-gray-500 uppercase tracking-wider mb-2">${label}</div>
+    <div class="text-3xl font-medium mb-1" style="color:${color}">${value}</div>
+    <div class="text-xs text-gray-500">${sub}</div>
+  </div>`;
+}
+
+function metricRow(label, value, color, isNum=true) {
+  return `<div class="flex justify-between items-center">
+    <span class="text-xs text-gray-500">${label}</span>
+    <span class="text-sm font-medium" style="color:${color}">${value}</span>
+  </div>`;
+}
+
+// ─── SYNC ─────────────────────────────────────────────────────────────────────
+function setSyncStatus(color, label) {
+  const dot = document.getElementById('sync-dot');
+  const lbl = document.getElementById('sync-label');
+  const colors = { green:'#4ade80', yellow:'#fbbf24', blue:'#60a5fa', red:'#f87171' };
+  dot.style.background = colors[color] || color;
+  dot.classList.toggle('sync-pulse', color === 'blue');
+  lbl.textContent = label;
+}
+
+function fetchAppsScript(url, tab) {
+  return new Promise((resolve, reject) => {
+    const cb = '_oas_' + Date.now();
+    const timer = setTimeout(() => {
+      delete window[cb];
+      if (sc.parentNode) sc.parentNode.removeChild(sc);
+      reject(new Error('Timeout'));
+    }, 15000);
+    window[cb] = function(data) {
+      clearTimeout(timer);
+      delete window[cb];
+      if (sc.parentNode) sc.parentNode.removeChild(sc);
+      if (!data.ok) { reject(new Error(data.error || 'Error del script')); return; }
+      resolve(data.rows);
+    };
+    const sc = document.createElement('script');
+    sc.src = url + '?sheet=' + encodeURIComponent(tab) + '&callback=' + cb;
+    sc.onerror = () => { clearTimeout(timer); delete window[cb]; reject(new Error('Script bloqueado')); };
+    document.head.appendChild(sc);
+  });
+}
+
+function extractFromAppsScriptRows(rows) {
+  const aliases = {
+    karla:'Karla', roberto:'Roberto', alejandro:'Alejandro',
+    claudia:'Claudia', clau:'Claudia', andrea:'Andrea',
+    fredy:'Fredy', francisco:'Francisco', paco:'Francisco', uriel:'Uriel'
+  };
+  const V1_STATUS       = new Set(['firmado','v1','cierre','directo','24hrs']);
+  const TRANSITO_STATUS = new Set(['en proceso','en fila']);
+  const TIPO_MAP = { 'ibuyer':'Ibuyer','inmobiliaria':'Inmobiliaria','desarrollo':'Desarrollo','brokerage':'Desarrollo','franquicia/inmo':'Franquicia/inmo','franquicia':'Franquicia/inmo' };
+  const cierres = {}, transito = {}, procesoTipos = {};
+  rows.slice(1).forEach(cells => {
+    const buyerKey = String(cells[0] || '').trim().toLowerCase();
+    const tipoRaw  = String(cells[2] || '').trim();
+    const status   = String(cells[6] || '').trim().toLowerCase();
+    const name = aliases[buyerKey];
+    if (!name) return;
+    if (V1_STATUS.has(status)) {
+      cierres[name] = (cierres[name] || 0) + 1;
+    } else if (TRANSITO_STATUS.has(status)) {
+      transito[name] = (transito[name] || 0) + 1;
+      const tipo = TIPO_MAP[tipoRaw.toLowerCase()];
+      if (tipo) procesoTipos[tipo] = (procesoTipos[tipo] || 0) + 1;
+    }
+  });
+  return { data: { cierres, transito, procesoTipos }, found: Object.keys(cierres).length };
+}
+
+function extractFunnelDataFromRows(rows) {
+  const aliases = {
+    karla:'Karla', roberto:'Roberto', alejandro:'Alejandro',
+    claudia:'Claudia', clau:'Claudia', andrea:'Andrea',
+    fredy:'Fredy', francisco:'Francisco', paco:'Francisco', uriel:'Uriel'
+  };
+  const visitas = {}, ofertas = {};
+  rows.slice(1).forEach(cells => {
+    const buyerKey = String(cells[0] || '').trim().toLowerCase();
+    const name = aliases[buyerKey];
+    if (!name) return;
+    const vis = cells[4], ofr = cells[5];
+    if (Number(vis) > 0) visitas[name] = Math.round(Number(vis));
+    if (Number(ofr) > 0) ofertas[name] = Math.round(Number(ofr));
+  });
+  return { visitas, ofertas };
+}
+
+function extractCierresFromFunnelRows(rows) {
+  const aliases = {
+    karla:'Karla', roberto:'Roberto', alejandro:'Alejandro',
+    claudia:'Claudia', clau:'Claudia', andrea:'Andrea',
+    fredy:'Fredy', francisco:'Francisco', paco:'Francisco', uriel:'Uriel'
+  };
+  const cierres = {}, visitas = {}, ofertas = {};
+  rows.slice(1).forEach(cells => {
+    const buyerKey = String(cells[0] || '').trim().toLowerCase();
+    const name = aliases[buyerKey];
+    if (!name) return;
+    const c = Number(String(cells[10] || '0').replace(',', '.'));
+    const v = Number(String(cells[4]  || '0').replace(',', '.'));
+    const o = Number(String(cells[5]  || '0').replace(',', '.'));
+    if (c > 0) cierres[name]  = Math.round(c);
+    if (v > 0) visitas[name]  = Math.round(v);
+    if (o > 0) ofertas[name]  = Math.round(o);
+  });
+  return { cierres, visitas, ofertas, found: Object.keys(cierres).length };
+}
+
+function extractTransitoFromRows(rows) {
+  const aliases = {
+    karla:'Karla', roberto:'Roberto', alejandro:'Alejandro',
+    claudia:'Claudia', clau:'Claudia', andrea:'Andrea',
+    fredy:'Fredy', francisco:'Francisco', paco:'Francisco', uriel:'Uriel'
+  };
+  const TRANSITO = new Set(['en proceso', 'en fila']);
+  const TIPO_MAP = {
+    'ibuyer':'Ibuyer', 'inmobiliaria':'Inmobiliaria',
+    'desarrollo':'Desarrollo', 'brokerage':'Desarrollo',
+    'franquicia/inmo':'Franquicia/inmo', 'franquicia':'Franquicia/inmo'
+  };
+  const transito = {}, procesoTipos = {};
+  rows.slice(1).forEach(cells => {
+    const buyerKey = String(cells[0] || '').trim().toLowerCase();
+    const status   = String(cells[6] || '').trim().toLowerCase();
+    const tipoRaw  = String(cells[2] || '').trim();
+    const name = aliases[buyerKey];
+    if (!name || !TRANSITO.has(status)) return;
+    transito[name] = (transito[name] || 0) + 1;
+    const tipo = TIPO_MAP[tipoRaw.toLowerCase()];
+    if (tipo) procesoTipos[tipo] = (procesoTipos[tipo] || 0) + 1;
+  });
+  return { transito, procesoTipos };
+}
+
+function fetchSheetGvizQuery(sheetId, tabName) {
+  tabName = tabName || getPeriodo().tab;
+  return new Promise((resolve, reject) => {
+    if (!_gchartsReady || !window.google?.visualization?.Query) {
+      reject(new Error('Google Charts no está listo'));
+      return;
+    }
+    const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?sheet=${encodeURIComponent(tabName)}`;
+    const query = new google.visualization.Query(url);
+    query.setTimeout(20);
+    query.send(response => {
+      if (response.isError()) { reject(new Error(response.getMessage() || 'Error del sheet')); return; }
+      const dt = response.getDataTable();
+      const rows = [];
+      for (let r = 0; r < dt.getNumberOfRows(); r++) {
+        const c = [];
+        for (let col = 0; col < dt.getNumberOfColumns(); col++) c.push({ v: dt.getValue(r, col) });
+        rows.push({ c });
+      }
+      resolve({ rows });
+    });
+  });
+}
+
+function extractFunnelData(table) {
+  const aliases = {
+    karla:'Karla', roberto:'Roberto', alejandro:'Alejandro',
+    claudia:'Claudia', clau:'Claudia', andrea:'Andrea',
+    fredy:'Fredy', francisco:'Francisco', paco:'Francisco', uriel:'Uriel'
+  };
+  const visitas = {}, ofertas = {};
+  (table.rows || []).forEach(row => {
+    const cells = row.c || [];
+    const buyerKey = String(cells[0]?.v || '').trim().toLowerCase();
+    const name = aliases[buyerKey];
+    if (!name) return;
+    const vis = cells[4]?.v;
+    const ofr = cells[5]?.v;
+    if (vis !== null && vis !== undefined && Number(vis) > 0) visitas[name] = Math.round(Number(vis));
+    if (ofr !== null && ofr !== undefined && Number(ofr) > 0) ofertas[name] = Math.round(Number(ofr));
+  });
+  return { visitas, ofertas };
+}
+
+function fetchSheetJSONP(sheetId, tabName) {
+  return new Promise((resolve, reject) => {
+    const cb = '_gviz_' + Date.now();
+    const timer = setTimeout(() => {
+      delete window[cb];
+      if (script.parentNode) script.parentNode.removeChild(script);
+      reject(new Error('Timeout — sheet no respondió'));
+    }, 10000);
+    window[cb] = function(data) {
+      clearTimeout(timer);
+      delete window[cb];
+      if (script.parentNode) script.parentNode.removeChild(script);
+      resolve(data);
+    };
+    const script = document.createElement('script');
+    const sheetEnc = encodeURIComponent(tabName || getPeriodo().tab);
+    script.src = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json;responseHandler:${cb}&sheet=${sheetEnc}`;
+    script.onerror = () => { clearTimeout(timer); delete window[cb]; reject(new Error('Script bloqueado')); };
+    document.head.appendChild(script);
+  });
+}
+
+function extractCierresFromGvizFunnelTable(table) {
+  const aliases = {
+    karla:'Karla', roberto:'Roberto', alejandro:'Alejandro',
+    claudia:'Claudia', clau:'Claudia', andrea:'Andrea',
+    fredy:'Fredy', francisco:'Francisco', paco:'Francisco', uriel:'Uriel'
+  };
+  const cierres = {}, visitas = {}, ofertas = {};
+  (table.rows || []).forEach(row => {
+    const cells = row.c || [];
+    const buyerKey = String(cells[0]?.v || '').trim().toLowerCase();
+    const name = aliases[buyerKey];
+    if (!name) return;
+    const c = Number(String(cells[10]?.v || '0').replace(',', '.'));
+    const v = Number(String(cells[4]?.v  || '0').replace(',', '.'));
+    const o = Number(String(cells[5]?.v  || '0').replace(',', '.'));
+    if (c > 0) cierres[name] = Math.round(c);
+    if (v > 0) visitas[name] = Math.round(v);
+    if (o > 0) ofertas[name] = Math.round(o);
+  });
+  return { cierres, visitas, ofertas, found: Object.keys(cierres).length };
+}
+
+function extractTransitoFromGvizTable(table) {
+  const aliases = {
+    karla:'Karla', roberto:'Roberto', alejandro:'Alejandro',
+    claudia:'Claudia', clau:'Claudia', andrea:'Andrea',
+    fredy:'Fredy', francisco:'Francisco', paco:'Francisco', uriel:'Uriel'
+  };
+  const TRANSITO = new Set(['en proceso', 'en fila']);
+  const TIPO_MAP = {
+    'ibuyer':'Ibuyer', 'inmobiliaria':'Inmobiliaria',
+    'desarrollo':'Desarrollo', 'brokerage':'Desarrollo',
+    'franquicia/inmo':'Franquicia/inmo', 'franquicia':'Franquicia/inmo'
+  };
+  const transito = {}, procesoTipos = {};
+  (table.rows || []).forEach(row => {
+    const cells = row.c || [];
+    const buyerKey = String(cells[0]?.v || '').trim().toLowerCase();
+    const status   = String(cells[6]?.v || '').trim().toLowerCase();
+    const tipoRaw  = String(cells[2]?.v || '').trim();
+    const name = aliases[buyerKey];
+    if (!name || !TRANSITO.has(status)) return;
+    transito[name] = (transito[name] || 0) + 1;
+    const tipo = TIPO_MAP[tipoRaw.toLowerCase()];
+    if (tipo) procesoTipos[tipo] = (procesoTipos[tipo] || 0) + 1;
+  });
+  return { transito, procesoTipos };
+}
+
+function extractFromGvizTable(table) {
+  const aliases = {
+    karla:'Karla', roberto:'Roberto', alejandro:'Alejandro',
+    claudia:'Claudia', clau:'Claudia', andrea:'Andrea',
+    fredy:'Fredy', francisco:'Francisco', paco:'Francisco', uriel:'Uriel'
+  };
+  const V1_STATUS       = new Set(['firmado','v1','cierre','directo','24hrs']);
+  const TRANSITO_STATUS = new Set(['en proceso','en fila']);
+  const TIPO_MAP = { 'ibuyer':'Ibuyer','inmobiliaria':'Inmobiliaria','desarrollo':'Desarrollo','brokerage':'Desarrollo','franquicia/inmo':'Franquicia/inmo','franquicia':'Franquicia/inmo' };
+
+  const cierres = {}, transito = {}, procesoTipos = {};
+
+  (table.rows || []).forEach(row => {
+    const cells = row.c || [];
+    const buyerKey = String(cells[0]?.v || '').trim().toLowerCase();
+    const tipoRaw  = String(cells[2]?.v || '').trim();
+    const status   = String(cells[6]?.v || '').trim().toLowerCase();
+    const name = aliases[buyerKey];
+    if (!name) return;
+    if (V1_STATUS.has(status)) {
+      cierres[name] = (cierres[name] || 0) + 1;
+    } else if (TRANSITO_STATUS.has(status)) {
+      transito[name] = (transito[name] || 0) + 1;
+      const tipo = TIPO_MAP[tipoRaw.toLowerCase()];
+      if (tipo) procesoTipos[tipo] = (procesoTipos[tipo] || 0) + 1;
+    }
+  });
+
+  return { data: { cierres, transito, procesoTipos }, found: Object.keys(cierres).length };
+}
+
+function applyExtracted(data, found, source) {
+  _syncRetryCount = 0;
+  if (_syncRetryTimer) { clearTimeout(_syncRetryTimer); _syncRetryTimer = null; }
+  const { cierres, transito, procesoTipos, visitas, ofertas } = data;
+  DB.forEach(b => { b.cierres = 0; b.contratos = 0; b.transito = 0; });
+  Object.entries(cierres).forEach(([name, val]) => {
+    const idx = DB.findIndex(b => b.name === name);
+    if (idx >= 0) { DB[idx].cierres = val; DB[idx].contratos = val; }
+  });
+  Object.entries(transito).forEach(([name, val]) => {
+    const idx = DB.findIndex(b => b.name === name);
+    if (idx >= 0) DB[idx].transito = val;
+  });
+  if (procesoTipos && Object.keys(procesoTipos).length > 0) window.EN_PROCESO_TIPOS = procesoTipos;
+  if (visitas) Object.entries(visitas).forEach(([name, val]) => { const i=DB.findIndex(b=>b.name===name); if(i>=0&&val>0)DB[i].visitas=val; });
+  if (ofertas) Object.entries(ofertas).forEach(([name, val]) => { const i=DB.findIndex(b=>b.name===name); if(i>=0&&val>0)DB[i].ofertas=val; });
+  setSyncStatus('green', `${source} · ${found} buyers`);
+  toast(`✓ Sincronizado — ${found} buyers actualizados`);
+  refreshView();
+}
+
+let _lastSyncTime = null;
+let _countdownTimer = null;
+
+function updateSyncTs() {
+  _lastSyncTime = new Date();
+  startCountdown();
+}
+
+function startCountdown() {
+  if (_countdownTimer) clearInterval(_countdownTimer);
+  let secs = 30;
+  const tsEl = document.getElementById('sync-ts');
+  const tick = () => {
+    if (!tsEl) return;
+    const hhmm = _lastSyncTime
+      ? _lastSyncTime.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit',second:'2-digit'})
+      : '--:--';
+    tsEl.textContent = `Últ: ${hhmm} · refresca en ${secs}s`;
+    secs--;
+    if (secs < 0) secs = 30;
+  };
+  tick();
+  _countdownTimer = setInterval(tick, 1000);
+}
+
+async function syncSheet() {
+  const SHEET_ID = getSheetId();
+  setSyncStatus('blue', 'Conectando…');
+
+  // ── Intento 1: Proxy local automático (sin configuración, siempre disponible) ─
+  try {
+    const funnelTab = getPeriodo().funnelTab;
+    const [ofertaRows, funnelRows] = await Promise.all([
+      fetchSheetProxy(getPeriodo().tab),
+      funnelTab ? fetchSheetProxy(funnelTab).catch(() => null) : Promise.resolve(null)
+    ]);
+    if (!funnelRows) throw new Error('Funnel tab no disponible');
+    const { cierres, visitas, ofertas, found } = extractCierresFromFunnelRows(funnelRows);
+    const { transito, procesoTipos } = extractTransitoFromRows(ofertaRows);
+    if (found >= 3) {
+      applyExtracted({ cierres, transito, procesoTipos, visitas, ofertas }, found, 'Sheet');
+      updateSyncTs();
+      console.log('[ORO] Sync OK vía proxy local:', found, 'buyers');
+      return;
+    }
+    throw new Error(`Solo ${found} buyers`);
+  } catch(ep) {
+    console.warn('[ORO] Proxy local no disponible:', ep.message);
+  }
+
+  // ── Intento 2: Apps Script (si está configurado) ──────────────────────────────
+  const asUrl = getAsUrl();
+  if (asUrl) {
+    try {
+      const funnelTab = getPeriodo().funnelTab;
+      const [ofertaRows, funnelRows] = await Promise.all([
+        fetchAppsScript(asUrl, getPeriodo().tab),
+        funnelTab ? fetchAppsScript(asUrl, funnelTab).catch(() => null) : Promise.resolve(null)
+      ]);
+      const extracted = extractFromAppsScriptRows(ofertaRows);
+      if (extracted.found >= 3) {
+        if (funnelRows) {
+          const fd = extractFunnelDataFromRows(funnelRows);
+          extracted.data.visitas = fd.visitas;
+          extracted.data.ofertas = fd.ofertas;
+        }
+        applyExtracted(extracted.data, extracted.found, 'Sheet');
+        updateSyncTs();
+        return;
+      }
+      throw new Error(`Solo ${extracted.found} buyers detectados`);
+    } catch(e0) {
+      console.warn('[ORO] Apps Script falló, intentando GvizQuery:', e0.message);
+    }
+  }
+
+  if (_gchartsReady) {
+    try {
+      const funnelTab = getPeriodo().funnelTab;
+      const [ofertaTable, funnelTable] = await Promise.all([
+        fetchSheetGvizQuery(SHEET_ID, getPeriodo().tab),
+        funnelTab ? fetchSheetGvizQuery(SHEET_ID, funnelTab).catch(() => null) : Promise.resolve(null)
+      ]);
+      if (!funnelTable) throw new Error('Funnel tab no disponible');
+      const { cierres: gvizCierres, visitas: gvizVisitas, ofertas: gvizOfertas, found: gvizFound } = extractCierresFromGvizFunnelTable(funnelTable);
+      const { transito: gvizTransito, procesoTipos: gvizTipos } = extractTransitoFromGvizTable(ofertaTable);
+      if (gvizFound >= 3) {
+        applyExtracted({ cierres: gvizCierres, transito: gvizTransito, procesoTipos: gvizTipos, visitas: gvizVisitas, ofertas: gvizOfertas }, gvizFound, 'Sheet');
+        updateSyncTs();
+        return;
+      }
+    } catch(e0) {
+      console.warn('[ORO] GvizQuery falló:', e0.message);
+    }
+  }
+
+  try {
+    const funnelTab4 = getPeriodo().funnelTab;
+    const [jOferta, jFunnel] = await Promise.all([
+      fetchSheetJSONP(SHEET_ID, getPeriodo().tab),
+      funnelTab4 ? fetchSheetJSONP(SHEET_ID, funnelTab4).catch(() => null) : Promise.resolve(null)
+    ]);
+    if (!jOferta?.table) throw new Error('Respuesta vacía');
+    if (!jFunnel?.table) throw new Error('Funnel tab no disponible');
+    const { cierres: jCierres, visitas: jVisitas, ofertas: jOfertas, found: jFound } = extractCierresFromGvizFunnelTable(jFunnel.table);
+    const { transito: jTransito, procesoTipos: jTipos } = extractTransitoFromGvizTable(jOferta.table);
+    if (jFound >= 3) {
+      applyExtracted({ cierres: jCierres, transito: jTransito, procesoTipos: jTipos, visitas: jVisitas, ofertas: jOfertas }, jFound, 'Sheet');
+      updateSyncTs();
+      return;
+    }
+    throw new Error(`Solo ${jFound} buyers detectados`);
+  } catch(e1) {
+    console.error('[ORO] Sync falló:', e1.message);
+    if (_syncRetryCount < 3) {
+      _syncRetryCount++;
+      setSyncStatus('yellow', `Sin conexión · reintento ${_syncRetryCount}/3`);
+      const tsEl = document.getElementById('sync-ts');
+      if (tsEl) tsEl.textContent = `Reintentando en 10s…`;
+      if (_syncRetryTimer) clearTimeout(_syncRetryTimer);
+      _syncRetryTimer = setTimeout(syncSheet, 10000);
+    } else {
+      _syncRetryCount = 0;
+      setSyncStatus('yellow', 'Sin conexión');
+      const tsEl = document.getElementById('sync-ts');
+      if (tsEl) tsEl.textContent = 'Usando datos locales';
+      toast('⚠ Sin conexión — los datos pueden no estar actualizados', 6000);
+    }
+  }
+}
+
+// ─── FILTERS + REFRESH ────────────────────────────────────────────────────────
+function applyFilters() {
+  currentFilter.semana = document.getElementById('filter-semana').value;
+  currentFilter.canal  = document.getElementById('filter-canal').value;
+  currentFilter.status = document.getElementById('filter-status').value;
+  refreshView();
+}
+
+function refreshView() {
+  updateTs();
+  destroyCharts();
+  if (currentView === 'equipo') renderEquipo();
+  else {
+    const buyer = DB.find(b=>b.name===currentView);
+    if (buyer) renderBuyer(buyer);
+    else renderEquipo();
+  }
+  buildNav();
+  document.querySelectorAll('.nav-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.view === currentView);
+  });
+}
+
+let _syncInterval = null;
+let _syncRetryTimer = null;
+let _syncRetryCount = 0;
+
+function resetSyncInterval() {
+  if (_syncRetryTimer) { clearTimeout(_syncRetryTimer); _syncRetryTimer = null; }
+  _syncRetryCount = 0;
+  if (_syncInterval) clearInterval(_syncInterval);
+  _syncInterval = setInterval(syncSheet, 30 * 1000);
+}
+
+async function manualSync() {
+  const btn   = document.getElementById('btn-actualizar');
+  const icon  = document.getElementById('btn-sync-icon');
+  const label = document.getElementById('btn-sync-label');
+  if (btn) btn.disabled = true;
+  if (label) label.textContent = 'Sincronizando…';
+  if (icon) icon.style.animation = 'spin 1s linear infinite';
+  await syncSheet();
+  resetSyncInterval();
+  if (btn) btn.disabled = false;
+  if (label) label.textContent = 'Actualizar';
+  if (icon) icon.style.animation = '';
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+updateTs();
+buildSemanaFilter();
+buildNav();
+navigate('equipo');
+resetSyncInterval();
+setTimeout(syncSheet, 1500);
+updateAsConfigBtn();
+
+function updateAsConfigBtn() {
+  const btn = document.getElementById('as-config-btn');
+  if (!btn) return;
+  if (getAsUrl()) {
+    btn.textContent = '✓ Sheet conectado';
+    btn.style.cssText = 'width:100%;text-align:left;padding:6px 12px;border-radius:8px;font-size:12px;color:#4ade80;background:rgba(74,222,128,.08);cursor:pointer;border:none';
+  } else {
+    btn.textContent = '⚡ Configurar conexión Sheet';
+    btn.style.cssText = 'width:100%;text-align:left;padding:6px 12px;border-radius:8px;font-size:12px;color:#fb923c;background:rgba(249,115,22,.1);cursor:pointer;border:none';
+  }
+}
+
+function openSetupModal() {
+  const m = document.getElementById('setup-modal');
+  if (!m) return;
+  m.style.display = 'flex';
+  const inp = document.getElementById('as-url-input');
+  if (inp) inp.value = getAsUrl();
+  const st = document.getElementById('as-url-status');
+  if (st) st.textContent = getAsUrl() ? '✓ URL ya configurada — puedes actualizarla' : '';
+}
+
+function closeSetupModal() {
+  const m = document.getElementById('setup-modal');
+  if (m) m.style.display = 'none';
+}
+
+function copyAsCode() {
+  const code = document.getElementById('as-code-block');
+  if (!code) return;
+  navigator.clipboard.writeText(code.innerText).then(() => {
+    const btn = document.getElementById('copy-code-btn');
+    if (btn) { btn.textContent = '✓ Copiado'; setTimeout(() => btn.textContent = 'Copiar código', 2000); }
+  });
+}
+
+function saveAsUrlFromModal() {
+  const inp = document.getElementById('as-url-input');
+  const st = document.getElementById('as-url-status');
+  if (!inp || !inp.value.trim()) { if (st) { st.textContent = '⚠ Pega la URL primero'; st.style.color = '#f87171'; } return; }
+  saveAsUrl(inp.value.trim());
+  if (st) { st.textContent = '✓ Guardado — conectando...'; st.style.color = '#4ade80'; }
+  updateAsConfigBtn();
+  setTimeout(() => { closeSetupModal(); syncSheet(); }, 800);
+}
+</script>
+
+<!-- Apps Script Setup Modal -->
+<div id="setup-modal" onclick="if(event.target===this)closeSetupModal()" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.85);align-items:center;justify-content:center">
+  <div style="background:#0f172a;border:1px solid #78350f;border-radius:14px;padding:28px;max-width:600px;width:92%;max-height:88vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,.7)">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+      <div>
+        <div style="color:#fff;font-weight:700;font-size:16px">⚡ Conectar CRM al Sheet</div>
+        <div style="color:#6b7280;font-size:12px;margin-top:3px">Configuración única · 5 minutos · nunca más falla</div>
+      </div>
+      <button onclick="closeSetupModal()" style="background:none;border:none;color:#6b7280;font-size:20px;cursor:pointer;padding:0 0 0 16px;line-height:1">✕</button>
+    </div>
+    <div style="height:1px;background:#78350f;margin:16px 0"></div>
+
+    <div style="margin-bottom:20px">
+      <div style="color:#fbbf24;font-size:11px;font-weight:700;letter-spacing:.08em;margin-bottom:8px">PASO 1 — Abre Google Apps Script</div>
+      <div style="color:#d1d5db;font-size:13px">Ve a <strong style="color:#fbbf24">script.google.com</strong> → clic en <strong>Nuevo proyecto</strong> → borra el código que aparece</div>
+    </div>
+
+    <div style="margin-bottom:20px">
+      <div style="color:#fbbf24;font-size:11px;font-weight:700;letter-spacing:.08em;margin-bottom:8px">PASO 2 — Pega este código</div>
+      <div style="position:relative">
+        <pre id="as-code-block" style="background:#020617;border:1px solid #78350f;border-radius:8px;padding:14px;color:#86efac;font-size:11px;line-height:1.6;overflow-x:auto;white-space:pre;margin:0">const SHEET_ID = '1p_AcDoteeSGnnN6H3rr87n7Rt5hYimW7c9toqS4BUMg';
+
+function doGet(e) {
+  const sheet = e.parameter.sheet || '';
+  const cb    = e.parameter.callback || 'cb';
+  try {
+    const ss  = SpreadsheetApp.openById(SHEET_ID);
+    const tab = ss.getSheetByName(sheet);
+    if (!tab) throw new Error('Hoja no encontrada: ' + sheet);
+    const rows = tab.getDataRange().getValues();
+    return out(cb, { ok: true, rows: rows });
+  } catch(err) {
+    return out(cb, { ok: false, error: err.message });
+  }
+}
+
+function out(cb, data) {
+  return ContentService
+    .createTextOutput(cb + '(' + JSON.stringify(data) + ')')
+    .setMimeType(ContentService.MimeType.JAVASCRIPT);
+}</pre>
+        <button id="copy-code-btn" onclick="copyAsCode()" style="position:absolute;top:10px;right:10px;background:#78350f;border:1px solid #d97706;color:#fde68a;font-size:11px;padding:5px 10px;border-radius:5px;cursor:pointer">Copiar código</button>
+      </div>
+    </div>
+
+    <div style="margin-bottom:20px">
+      <div style="color:#fbbf24;font-size:11px;font-weight:700;letter-spacing:.08em;margin-bottom:8px">PASO 3 — Implementa como App web</div>
+      <div style="color:#d1d5db;font-size:13px;line-height:1.8">
+        Clic en <strong>Implementar</strong> → <strong>Nueva implementación</strong><br>
+        Tipo: <strong>App web</strong><br>
+        Ejecutar como: <strong>Yo (tu cuenta de Google)</strong><br>
+        Quién tiene acceso: <strong>Cualquier persona</strong><br>
+        → clic <strong>Implementar</strong> → autoriza si pide → <strong>copia la URL</strong>
+      </div>
+    </div>
+
+    <div>
+      <div style="color:#fbbf24;font-size:11px;font-weight:700;letter-spacing:.08em;margin-bottom:8px">PASO 4 — Pega la URL aquí y guarda</div>
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <input id="as-url-input" placeholder="https://script.google.com/macros/s/AKfycbx…/exec"
+          style="flex:1;background:#020617;border:1px solid #78350f;border-radius:7px;padding:10px 14px;color:#fff;font-size:12px;outline:none;font-family:monospace"
+          onfocus="this.style.borderColor='#d97706'" onblur="this.style.borderColor='#78350f'">
+        <button onclick="saveAsUrlFromModal()"
+          style="background:#d97706;border:none;color:#fff;font-size:13px;font-weight:600;padding:10px 20px;border-radius:7px;cursor:pointer;white-space:nowrap">
+          Guardar y conectar
+        </button>
+      </div>
+      <div id="as-url-status" style="font-size:12px;color:#6b7280;min-height:18px"></div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

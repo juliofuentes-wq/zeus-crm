@@ -176,7 +176,18 @@ const DB_MAYO_2026 = [
   { name:'Alejandro', meta:16, cierres:10, visitas:163, ofertas:13, contratos:10, ibuyer:1,  brokerage:4,  inmobiliaria:4,  franquicia:1, semanas:[3,3,2,2],  transito:2 },
   { name:'Uriel',     meta:2,  cierres:0,  visitas:139, ofertas:1,  contratos:0,  ibuyer:0,  brokerage:0,  inmobiliaria:0,  franquicia:0, semanas:[0,0,0,0],  transito:0 },
 ];
-const DB_SNAPSHOTS = { 'mayo-2026': DB_MAYO_2026 };
+// ─── SNAPSHOT JUNIO 2026 (metas Zeus) ────────────────────────────────────────
+const DB_JUNIO_2026 = [
+  { name:'Karla',     meta:25, cierres:0, visitas:0, ofertas:0, contratos:0, ibuyer:0, brokerage:0, inmobiliaria:0, franquicia:0, semanas:[0,0,0,0,0], transito:0 },
+  { name:'Roberto',   meta:16, cierres:0, visitas:0, ofertas:0, contratos:0, ibuyer:0, brokerage:0, inmobiliaria:0, franquicia:0, semanas:[0,0,0,0,0], transito:0 },
+  { name:'Fredy',     meta:16, cierres:0, visitas:0, ofertas:0, contratos:0, ibuyer:0, brokerage:0, inmobiliaria:0, franquicia:0, semanas:[0,0,0,0,0], transito:0 },
+  { name:'Francisco', meta:4,  cierres:0, visitas:0, ofertas:0, contratos:0, ibuyer:0, brokerage:0, inmobiliaria:0, franquicia:0, semanas:[0,0,0,0,0], transito:0 },
+  { name:'Andrea',    meta:16, cierres:0, visitas:0, ofertas:0, contratos:0, ibuyer:0, brokerage:0, inmobiliaria:0, franquicia:0, semanas:[0,0,0,0,0], transito:0 },
+  { name:'Claudia',   meta:16, cierres:0, visitas:0, ofertas:0, contratos:0, ibuyer:0, brokerage:0, inmobiliaria:0, franquicia:0, semanas:[0,0,0,0,0], transito:0 },
+  { name:'Alejandro', meta:16, cierres:0, visitas:0, ofertas:0, contratos:0, ibuyer:0, brokerage:0, inmobiliaria:0, franquicia:0, semanas:[0,0,0,0,0], transito:0 },
+  { name:'Uriel',     meta:2,  cierres:0, visitas:0, ofertas:0, contratos:0, ibuyer:0, brokerage:0, inmobiliaria:0, franquicia:0, semanas:[0,0,0,0,0], transito:0 },
+];
+const DB_SNAPSHOTS = { 'mayo-2026': DB_MAYO_2026, 'junio-2026': DB_JUNIO_2026 };
 
 function dbTemplate() {
   const nSem = getPeriodo().semanas.length;

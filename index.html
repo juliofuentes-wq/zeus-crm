@@ -151,7 +151,7 @@ const PERIODOS = [
   { key:'marzo-2026',   label:'Marzo 2026',   tab:'Oferta marzo 2026',   funnelTab:'Funnel y metas marzo 2026',   metaEquipo:103, diasRest:0, cierreLabel:'', semanas:['1','2','3','4'] },
   { key:'abril-2026',   label:'Abril 2026',   tab:'Oferta abril 2026',   funnelTab:'Funnel y metas abril 2026',   metaEquipo:103, diasRest:0, cierreLabel:'', semanas:['1','2','3','4'] },
   { key:'mayo-2026',    label:'Mayo 2026',     tab:'Oferta mayo 2026',    funnelTab:'Funnel y metas mayo 2026',    metaEquipo:103, diasRest:0, cierreLabel:'', semanas:['5-11 may','12-18 may','19-25 may','26 may-1 jun'] },
-  { key:'junio-2026',   label:'Junio 2026',   tab:'Oferta junio 2026',   funnelTab:'Funnel y metas junio 2026',   metaEquipo:103, diasRest:0, cierreLabel:'Cierre 6 jul', semanas:['2-8 jun','9-15 jun','16-22 jun','23-29 jun','30 jun-6 jul'] },
+  { key:'junio-2026',   label:'Junio 2026',   tab:'Oferta junio 2026',   funnelTab:'Funnel y metas junio 2026',   metaEquipo:103, diasRest:0, cierreLabel:'Cierre 6 jul', semanas:['2-8 jun','9-15 jun','16-22 jun','23-29 jun','30 jun-6 jul'], live:true },
   { key:'julio-2026',   label:'Julio 2026',   tab:'Oferta julio 2026',   funnelTab:'Funnel y metas julio 2026',   metaEquipo:103, diasRest:0, cierreLabel:'', semanas:['1','2','3','4'] },
 ];
 let currentPeriodoKey = 'junio-2026';
@@ -220,8 +220,14 @@ function switchMes(key) {
   currentView = 'equipo';
   buildSemanaFilter();
   refreshView();
-  resetSyncInterval();
-  setTimeout(syncSheet, 300);
+  if (p.live) {
+    resetSyncInterval();
+    setTimeout(syncSheet, 300);
+  } else {
+    if (_syncInterval) clearInterval(_syncInterval);
+    if (_syncRetryTimer) clearTimeout(_syncRetryTimer);
+    setSyncStatus('green', 'Datos históricos');
+  }
 }
 
 // ─── EN PROCESO POR TIPO (actualizado por sync) ──────────────────────────────

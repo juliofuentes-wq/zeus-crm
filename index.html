@@ -104,10 +104,6 @@ tailwind.config = {
         <div class="w-px h-4 bg-gray-700"></div>
         <select id="filter-semana" onchange="applyFilters()" class="text-xs bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-gray-300 focus:outline-none focus:border-blue-500">
           <option value="all">Todas las semanas</option>
-          <option value="0">Semana 1 (5-11 may)</option>
-          <option value="1">Semana 2 (12-18 may)</option>
-          <option value="2">Semana 3 (19-25 may)</option>
-          <option value="3">Semana 4 (26-1 jun)</option>
         </select>
         <select id="filter-canal" onchange="applyFilters()" class="text-xs bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-gray-300 focus:outline-none focus:border-blue-500">
           <option value="all">Todos los canales</option>
@@ -154,8 +150,8 @@ const PERIODOS = [
   { key:'febrero-2026', label:'Febrero 2026', tab:'Oferta febrero 2026', funnelTab:'Funnel y metas febrero 2026', metaEquipo:103, diasRest:0, cierreLabel:'', semanas:['1','2','3','4'] },
   { key:'marzo-2026',   label:'Marzo 2026',   tab:'Oferta marzo 2026',   funnelTab:'Funnel y metas marzo 2026',   metaEquipo:103, diasRest:0, cierreLabel:'', semanas:['1','2','3','4'] },
   { key:'abril-2026',   label:'Abril 2026',   tab:'Oferta abril 2026',   funnelTab:'Funnel y metas abril 2026',   metaEquipo:103, diasRest:0, cierreLabel:'', semanas:['1','2','3','4'] },
-  { key:'mayo-2026',    label:'Mayo 2026',     tab:'Oferta mayo 2026',    funnelTab:'Funnel y metas mayo 2026',    metaEquipo:103, diasRest:0, cierreLabel:'', semanas:['1 (5-11 may)','2 (12-18 may)','3 (19-25 may)','4 (26-1 jun)'] },
-  { key:'junio-2026',   label:'Junio 2026',   tab:'Oferta junio 2026',   funnelTab:'Funnel y metas junio 2026',   metaEquipo:103, diasRest:0, cierreLabel:'Cierre 6 jul', semanas:['1 (2-8 jun)','2 (9-15 jun)','3 (16-22 jun)','4 (23-29 jun)','5 (30 jun-6 jul)'] },
+  { key:'mayo-2026',    label:'Mayo 2026',     tab:'Oferta mayo 2026',    funnelTab:'Funnel y metas mayo 2026',    metaEquipo:103, diasRest:0, cierreLabel:'', semanas:['5-11 may','12-18 may','19-25 may','26 may-1 jun'] },
+  { key:'junio-2026',   label:'Junio 2026',   tab:'Oferta junio 2026',   funnelTab:'Funnel y metas junio 2026',   metaEquipo:103, diasRest:0, cierreLabel:'Cierre 6 jul', semanas:['2-8 jun','9-15 jun','16-22 jun','23-29 jun','30 jun-6 jul'] },
   { key:'julio-2026',   label:'Julio 2026',   tab:'Oferta julio 2026',   funnelTab:'Funnel y metas julio 2026',   metaEquipo:103, diasRest:0, cierreLabel:'', semanas:['1','2','3','4'] },
 ];
 let currentPeriodoKey = 'junio-2026';
@@ -164,7 +160,7 @@ function getPeriodo() { return PERIODOS.find(p => p.key === currentPeriodoKey) |
 // ─── CONSTANTS ───────────────────────────────────────────────────────────────
 const META_EQUIPO = 103;
 let DIAS_REST = 0;
-let SEMANAS = ['1 (2-8 jun)','2 (9-15 jun)','3 (16-22 jun)','4 (23-29 jun)','5 (30 jun-6 jul)'];
+let SEMANAS = ['2-8 jun','9-15 jun','16-22 jun','23-29 jun','30 jun-6 jul'];
 const COLORES = { verde:'#4ade80', amarillo:'#fbbf24', rojo:'#f87171', azul:'#60a5fa', purpura:'#a78bfa', gris:'#6b7280' };
 const LS_SHEET_KEY = 'zeus_sheet_id';
 const LS_NOTAS_PREFIX = 'zeus_nota_';
@@ -191,6 +187,13 @@ function dbTemplate() {
   }));
 }
 
+function buildSemanaFilter() {
+  const sel = document.getElementById('filter-semana');
+  if (!sel) return;
+  sel.innerHTML = '<option value="all">Todas las semanas</option>' +
+    SEMANAS.map((s, i) => `<option value="${i}">Semana ${i + 1} (${s})</option>`).join('');
+}
+
 function switchMes(key) {
   if (key === currentPeriodoKey) return;
   currentPeriodoKey = key;
@@ -204,6 +207,7 @@ function switchMes(key) {
   window.NIDS_DATA = snap ? window.NIDS_DATA_MAYO : {};
   document.getElementById('mes-selector').value = key;
   currentView = 'equipo';
+  buildSemanaFilter();
   refreshView();
   resetSyncInterval();
   setTimeout(syncSheet, 300);
@@ -1706,6 +1710,7 @@ if (_asInput) { _asInput.value = getAsUrl(); }
 const _asStatus = document.getElementById('as-url-status');
 if (_asStatus && getAsUrl()) { _asStatus.textContent = '✓ URL configurada'; _asStatus.style.color = '#4ade80'; }
 buildNav();
+buildSemanaFilter();
 navigate('equipo');
 resetSyncInterval();
 setTimeout(syncSheet, 1500);

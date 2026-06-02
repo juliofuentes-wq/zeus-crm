@@ -328,7 +328,8 @@ window.NIDS_DATA_MAYO = {
 window.NIDS_DATA = window.NIDS_DATA_MAYO;
 
 // ─── DATA (inicializado desde snapshot del mes activo) ────────────────────────
-let DB = DB_MAYO_2026.map(r => ({...r}));
+const _initSnap = DB_SNAPSHOTS[currentPeriodoKey];
+let DB = (_initSnap ? _initSnap : dbTemplate()).map(r => ({...r}));
 
 let activeCharts = {};
 let currentView = 'equipo';

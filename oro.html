@@ -142,16 +142,16 @@ if (window.google && window.google.charts) {
 const SHEET_ID_GLOBAL = '1p_AcDoteeSGnnN6H3rr87n7Rt5hYimW7c9toqS4BUMg';
 const PERIODOS = [
   { key:'mayo-2026',  label:'Mayo 2026',  tab:'Oferta mayo 2026',  funnelTab:'Funnel y metas mayo 2026',  metaEquipo:130, diasRest:0, cierreLabel:'', semanas:['1 (5-11 may)','2 (12-18 may)','3 (19-25 may)','4 (26-1 jun)'] },
-  { key:'junio-2026', label:'Junio 2026', tab:'Oferta junio 2026', funnelTab:'Funnel y metas junio 2026', metaEquipo:130, diasRest:0, cierreLabel:'', semanas:['1','2','3','4'] },
+  { key:'junio-2026', label:'Junio 2026', tab:'Oferta junio 2026', funnelTab:'Funnel y metas junio 2026', metaEquipo:169, diasRest:0, cierreLabel:'Cierre 6 jul', semanas:['1 (2-8 jun)','2 (9-15 jun)','3 (16-22 jun)','4 (23-29 jun)','5 (30 jun-6 jul)'] },
   { key:'julio-2026', label:'Julio 2026', tab:'Oferta julio 2026', funnelTab:'Funnel y metas julio 2026', metaEquipo:130, diasRest:0, cierreLabel:'', semanas:['1','2','3','4'] },
 ];
-let currentPeriodoKey = 'mayo-2026';
+let currentPeriodoKey = 'junio-2026';
 function getPeriodo() { return PERIODOS.find(p => p.key === currentPeriodoKey) || PERIODOS[0]; }
 
 // ─── CONSTANTS ───────────────────────────────────────────────────────────────
-const META_EQUIPO = 130;
+const META_EQUIPO = 169;
 let DIAS_REST = 0;
-let SEMANAS = ['1 (5-11 may)','2 (12-18 may)','3 (19-25 may)','4 (26-1 jun)'];
+let SEMANAS = ['1 (2-8 jun)','2 (9-15 jun)','3 (16-22 jun)','4 (23-29 jun)','5 (30 jun-6 jul)'];
 const COLORES = { verde:'#4ade80', amarillo:'#fbbf24', rojo:'#f87171', azul:'#60a5fa', purpura:'#a78bfa', gris:'#6b7280' };
 const LS_NOTAS_PREFIX = 'oro_nota_';
 const LS_AS_URL = 'oro_as_url';
@@ -200,10 +200,11 @@ const DB_MAYO_2026 = [
 const DB_SNAPSHOTS = { 'mayo-2026': DB_MAYO_2026 };
 
 function dbTemplate() {
+  const nSem = getPeriodo().semanas.length;
   return DB_MAYO_2026.map(b => ({
     ...b, cierres:0, visitas:0, ofertas:0, contratos:0,
     ibuyer:0, brokerage:0, inmobiliaria:0, franquicia:0,
-    semanas:[0,0,0,0], transito:0
+    semanas: Array(nSem).fill(0), transito:0
   }));
 }
 

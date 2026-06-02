@@ -162,7 +162,7 @@ function saveAsUrl(val) {
   localStorage.setItem(LS_AS_URL, val);
 }
 
-function fetchSheetProxy(tab) {
+function fetchSheetProxy(tab, tq) {
   return new Promise((resolve, reject) => {
     const cb = '_prx_' + Date.now();
     const timer = setTimeout(() => {
@@ -178,7 +178,9 @@ function fetchSheetProxy(tab) {
       resolve(data.rows);
     };
     const sc = document.createElement('script');
-    sc.src = PROXY_URL + '/api/sheet?tab=' + encodeURIComponent(tab) + '&callback=' + cb;
+    let src = PROXY_URL + '/api/sheet?tab=' + encodeURIComponent(tab) + '&callback=' + cb;
+    if (tq) src += '&tq=' + encodeURIComponent(tq);
+    sc.src = src;
     sc.onerror = () => { clearTimeout(timer); delete window[cb]; reject(new Error('Proxy no disponible')); };
     document.head.appendChild(sc);
   });
@@ -1083,14 +1085,78 @@ function extractTransitoFromRows(rows) {
   return { transito, procesoTipos };
 }
 
-function fetchSheetGvizQuery(sheetId, tabName) {
+function extractNIDsFromOfertaRows(rows) {
+  const aliases = {
+    karla:'Karla', roberto:'Roberto', alejandro:'Alejandro',
+    claudia:'Claudia', clau:'Claudia', andrea:'Andrea',
+    fredy:'Fredy', francisco:'Francisco', paco:'Francisco', uriel:'Uriel'
+  };
+  const V1_STATUS = new Set(['firmado','v1','cierre','directo','24hrs']);
+  const TIPO_MAP = {
+    'ibuyer':'Ibuyer', 'inmobiliaria':'Inmobiliaria',
+    'desarrollo':'Desarrollo', 'brokerage':'Desarrollo',
+    'franquicia/inmo':'Franquicia/inmo', 'franquicia':'Franquicia/inmo'
+  };
+  const result = {};
+  rows.slice(1).forEach(cells => {
+    const buyerKey = String(cells[0] || '').trim().toLowerCase();
+    const name = aliases[buyerKey];
+    if (!name) return;
+    const status = String(cells[6] || '').trim().toLowerCase();
+    if (!V1_STATUS.has(status)) return;
+    const tipoRaw = String(cells[2] || '').trim();
+    const tipo = TIPO_MAP[tipoRaw.toLowerCase()] || tipoRaw;
+    const nid   = String(cells[1] || '').trim();
+    const email = String(cells[7] || '').trim();
+    const display = (tipo === 'Desarrollo') ? email : nid;
+    if (!display) return;
+    if (!result[name]) result[name] = [];
+    result[name].push({ tipo, display });
+  });
+  return result;
+}
+
+function extractNIDsFromGvizTable(table) {
+  const aliases = {
+    karla:'Karla', roberto:'Roberto', alejandro:'Alejandro',
+    claudia:'Claudia', clau:'Claudia', andrea:'Andrea',
+    fredy:'Fredy', francisco:'Francisco', paco:'Francisco', uriel:'Uriel'
+  };
+  const V1_STATUS = new Set(['firmado','v1','cierre','directo','24hrs']);
+  const TIPO_MAP = {
+    'ibuyer':'Ibuyer', 'inmobiliaria':'Inmobiliaria',
+    'desarrollo':'Desarrollo', 'brokerage':'Desarrollo',
+    'franquicia/inmo':'Franquicia/inmo', 'franquicia':'Franquicia/inmo'
+  };
+  const result = {};
+  (table.rows || []).forEach(row => {
+    const cells = row.c || [];
+    const buyerKey = String(cells[0]?.v || '').trim().toLowerCase();
+    const name = aliases[buyerKey];
+    if (!name) return;
+    const status = String(cells[6]?.v || '').trim().toLowerCase();
+    if (!V1_STATUS.has(status)) return;
+    const tipoRaw = String(cells[2]?.v || '').trim();
+    const tipo = TIPO_MAP[tipoRaw.toLowerCase()] || tipoRaw;
+    const nid   = String(cells[1]?.v || '').trim();
+    const email = String(cells[7]?.v || '').trim();
+    const display = (tipo === 'Desarrollo') ? email : nid;
+    if (!display) return;
+    if (!result[name]) result[name] = [];
+    result[name].push({ tipo, display });
+  });
+  return result;
+}
+
+function fetchSheetGvizQuery(sheetId, tabName, tq) {
   tabName = tabName || getPeriodo().tab;
   return new Promise((resolve, reject) => {
     if (!_gchartsReady || !window.google?.visualization?.Query) {
       reject(new Error('Google Charts no está listo'));
       return;
     }
-    const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?sheet=${encodeURIComponent(tabName)}`;
+    let url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?sheet=${encodeURIComponent(tabName)}`;
+    if (tq) url += `&tq=${encodeURIComponent(tq)}`;
     const query = new google.visualization.Query(url);
     query.setTimeout(20);
     query.send(response => {
@@ -1127,7 +1193,7 @@ function extractFunnelData(table) {
   return { visitas, ofertas };
 }
 
-function fetchSheetJSONP(sheetId, tabName) {
+function fetchSheetJSONP(sheetId, tabName, tq) {
   return new Promise((resolve, reject) => {
     const cb = '_gviz_' + Date.now();
     const timer = setTimeout(() => {
@@ -1143,7 +1209,9 @@ function fetchSheetJSONP(sheetId, tabName) {
     };
     const script = document.createElement('script');
     const sheetEnc = encodeURIComponent(tabName || getPeriodo().tab);
-    script.src = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json;responseHandler:${cb}&sheet=${sheetEnc}`;
+    let src = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json;responseHandler:${cb}&sheet=${sheetEnc}`;
+    if (tq) src += `&tq=${encodeURIComponent(tq)}`;
+    script.src = src;
     script.onerror = () => { clearTimeout(timer); delete window[cb]; reject(new Error('Script bloqueado')); };
     document.head.appendChild(script);
   });
@@ -1283,13 +1351,14 @@ async function syncSheet() {
   try {
     const funnelTab = getPeriodo().funnelTab;
     const [ofertaRows, funnelRows] = await Promise.all([
-      fetchSheetProxy(getPeriodo().tab),
+      fetchSheetProxy(getPeriodo().tab, 'select *'),
       funnelTab ? fetchSheetProxy(funnelTab).catch(() => null) : Promise.resolve(null)
     ]);
     if (!funnelRows) throw new Error('Funnel tab no disponible');
     const { cierres, visitas, ofertas, found } = extractCierresFromFunnelRows(funnelRows);
     const { transito, procesoTipos } = extractTransitoFromRows(ofertaRows);
     if (found >= 3) {
+      window.NIDS_DATA = extractNIDsFromOfertaRows(ofertaRows);
       applyExtracted({ cierres, transito, procesoTipos, visitas, ofertas }, found, 'Sheet');
       updateSyncTs();
       console.log('[ORO] Sync OK vía proxy local:', found, 'buyers');
@@ -1330,13 +1399,14 @@ async function syncSheet() {
     try {
       const funnelTab = getPeriodo().funnelTab;
       const [ofertaTable, funnelTable] = await Promise.all([
-        fetchSheetGvizQuery(SHEET_ID, getPeriodo().tab),
+        fetchSheetGvizQuery(SHEET_ID, getPeriodo().tab, 'select *'),
         funnelTab ? fetchSheetGvizQuery(SHEET_ID, funnelTab).catch(() => null) : Promise.resolve(null)
       ]);
       if (!funnelTable) throw new Error('Funnel tab no disponible');
       const { cierres: gvizCierres, visitas: gvizVisitas, ofertas: gvizOfertas, found: gvizFound } = extractCierresFromGvizFunnelTable(funnelTable);
       const { transito: gvizTransito, procesoTipos: gvizTipos } = extractTransitoFromGvizTable(ofertaTable);
       if (gvizFound >= 3) {
+        window.NIDS_DATA = extractNIDsFromGvizTable(ofertaTable);
         applyExtracted({ cierres: gvizCierres, transito: gvizTransito, procesoTipos: gvizTipos, visitas: gvizVisitas, ofertas: gvizOfertas }, gvizFound, 'Sheet');
         updateSyncTs();
         return;
@@ -1349,7 +1419,7 @@ async function syncSheet() {
   try {
     const funnelTab4 = getPeriodo().funnelTab;
     const [jOferta, jFunnel] = await Promise.all([
-      fetchSheetJSONP(SHEET_ID, getPeriodo().tab),
+      fetchSheetJSONP(SHEET_ID, getPeriodo().tab, 'select *'),
       funnelTab4 ? fetchSheetJSONP(SHEET_ID, funnelTab4).catch(() => null) : Promise.resolve(null)
     ]);
     if (!jOferta?.table) throw new Error('Respuesta vacía');
@@ -1357,6 +1427,7 @@ async function syncSheet() {
     const { cierres: jCierres, visitas: jVisitas, ofertas: jOfertas, found: jFound } = extractCierresFromGvizFunnelTable(jFunnel.table);
     const { transito: jTransito, procesoTipos: jTipos } = extractTransitoFromGvizTable(jOferta.table);
     if (jFound >= 3) {
+      window.NIDS_DATA = extractNIDsFromGvizTable(jOferta.table);
       applyExtracted({ cierres: jCierres, transito: jTransito, procesoTipos: jTipos, visitas: jVisitas, ofertas: jOfertas }, jFound, 'Sheet');
       updateSyncTs();
       return;

@@ -1019,7 +1019,7 @@ function extractFromAppsScriptRows(rows) {
       if (tipo) procesoTipos[tipo] = (procesoTipos[tipo] || 0) + 1;
     }
   });
-  return { data: { cierres, transito, procesoTipos }, found: Object.keys(cierres).length };
+  return { data: { cierres, transito, procesoTipos }, found: new Set([...Object.keys(cierres), ...Object.keys(transito)]).size };
 }
 
 function extractFunnelDataFromRows(rows) {
@@ -1058,7 +1058,8 @@ function extractCierresFromFunnelRows(rows) {
     if (v > 0) visitas[name]  = Math.round(v);
     if (o > 0) ofertas[name]  = Math.round(o);
   });
-  return { cierres, visitas, ofertas, found: Object.keys(cierres).length };
+  const _allFoundFunnel = new Set([...Object.keys(cierres), ...Object.keys(visitas), ...Object.keys(ofertas)]);
+  return { cierres, visitas, ofertas, found: _allFoundFunnel.size };
 }
 
 function extractTransitoFromRows(rows) {
@@ -1238,7 +1239,8 @@ function extractCierresFromGvizFunnelTable(table) {
     if (v > 0) visitas[name] = Math.round(v);
     if (o > 0) ofertas[name] = Math.round(o);
   });
-  return { cierres, visitas, ofertas, found: Object.keys(cierres).length };
+  const _allFoundGviz = new Set([...Object.keys(cierres), ...Object.keys(visitas), ...Object.keys(ofertas)]);
+  return { cierres, visitas, ofertas, found: _allFoundGviz.size };
 }
 
 function extractTransitoFromGvizTable(table) {
@@ -1359,7 +1361,7 @@ async function syncSheet() {
     if (!funnelRows) throw new Error('Funnel tab no disponible');
     const { cierres, visitas, ofertas, found } = extractCierresFromFunnelRows(funnelRows);
     const { transito, procesoTipos } = extractTransitoFromRows(ofertaRows);
-    if (found >= 3) {
+    if (found >= 1) {
       window.NIDS_DATA = extractNIDsFromOfertaRows(ofertaRows);
       applyExtracted({ cierres, transito, procesoTipos, visitas, ofertas }, found, 'Sheet');
       updateSyncTs();
@@ -1381,7 +1383,7 @@ async function syncSheet() {
         funnelTab ? fetchAppsScript(asUrl, funnelTab).catch(() => null) : Promise.resolve(null)
       ]);
       const extracted = extractFromAppsScriptRows(ofertaRows);
-      if (extracted.found >= 3) {
+      if (extracted.found >= 1) {
         if (funnelRows) {
           const fd = extractFunnelDataFromRows(funnelRows);
           extracted.data.visitas = fd.visitas;
@@ -1407,7 +1409,7 @@ async function syncSheet() {
       if (!funnelTable) throw new Error('Funnel tab no disponible');
       const { cierres: gvizCierres, visitas: gvizVisitas, ofertas: gvizOfertas, found: gvizFound } = extractCierresFromGvizFunnelTable(funnelTable);
       const { transito: gvizTransito, procesoTipos: gvizTipos } = extractTransitoFromGvizTable(ofertaTable);
-      if (gvizFound >= 3) {
+      if (gvizFound >= 1) {
         window.NIDS_DATA = extractNIDsFromGvizTable(ofertaTable);
         applyExtracted({ cierres: gvizCierres, transito: gvizTransito, procesoTipos: gvizTipos, visitas: gvizVisitas, ofertas: gvizOfertas }, gvizFound, 'Sheet');
         updateSyncTs();
@@ -1428,7 +1430,7 @@ async function syncSheet() {
     if (!jFunnel?.table) throw new Error('Funnel tab no disponible');
     const { cierres: jCierres, visitas: jVisitas, ofertas: jOfertas, found: jFound } = extractCierresFromGvizFunnelTable(jFunnel.table);
     const { transito: jTransito, procesoTipos: jTipos } = extractTransitoFromGvizTable(jOferta.table);
-    if (jFound >= 3) {
+    if (jFound >= 1) {
       window.NIDS_DATA = extractNIDsFromGvizTable(jOferta.table);
       applyExtracted({ cierres: jCierres, transito: jTransito, procesoTipos: jTipos, visitas: jVisitas, ofertas: jOfertas }, jFound, 'Sheet');
       updateSyncTs();

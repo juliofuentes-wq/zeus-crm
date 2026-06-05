@@ -1065,20 +1065,22 @@ function extractCierresFromFunnelRows(rows) {
     claudia:'Claudia', clau:'Claudia', andrea:'Andrea',
     fredy:'Fredy', francisco:'Francisco', paco:'Francisco', uriel:'Uriel'
   };
-  const cierres = {}, visitas = {}, ofertas = {};
+  const cierres = {}, visitas = {}, ofertas = {}, metas = {};
   rows.slice(1).forEach(cells => {
     const buyerKey = String(cells[0] || '').trim().toLowerCase();
     const name = aliases[buyerKey];
     if (!name) return;
+    const m = Number(String(cells[1]  || '0').replace(',', '.'));
     const c = Number(String(cells[10] || '0').replace(',', '.'));
     const v = Number(String(cells[4]  || '0').replace(',', '.'));
     const o = Number(String(cells[5]  || '0').replace(',', '.'));
-    if (c > 0) cierres[name]  = Math.round(c);
-    if (v > 0) visitas[name]  = Math.round(v);
-    if (o > 0) ofertas[name]  = Math.round(o);
+    if (m > 0) metas[name]   = Math.round(m);
+    if (c > 0) cierres[name] = Math.round(c);
+    if (v > 0) visitas[name] = Math.round(v);
+    if (o > 0) ofertas[name] = Math.round(o);
   });
   const _allFoundFunnel = new Set([...Object.keys(cierres), ...Object.keys(visitas), ...Object.keys(ofertas)]);
-  return { cierres, visitas, ofertas, found: _allFoundFunnel.size };
+  return { cierres, visitas, ofertas, metas, found: _allFoundFunnel.size };
 }
 
 function extractTransitoFromRows(rows) {
@@ -1245,21 +1247,23 @@ function extractCierresFromGvizFunnelTable(table) {
     claudia:'Claudia', clau:'Claudia', andrea:'Andrea',
     fredy:'Fredy', francisco:'Francisco', paco:'Francisco', uriel:'Uriel'
   };
-  const cierres = {}, visitas = {}, ofertas = {};
+  const cierres = {}, visitas = {}, ofertas = {}, metas = {};
   (table.rows || []).forEach(row => {
     const cells = row.c || [];
     const buyerKey = String(cells[0]?.v || '').trim().toLowerCase();
     const name = aliases[buyerKey];
     if (!name) return;
+    const m = Number(String(cells[1]?.v  || '0').replace(',', '.'));
     const c = Number(String(cells[10]?.v || '0').replace(',', '.'));
     const v = Number(String(cells[4]?.v  || '0').replace(',', '.'));
     const o = Number(String(cells[5]?.v  || '0').replace(',', '.'));
+    if (m > 0) metas[name]   = Math.round(m);
     if (c > 0) cierres[name] = Math.round(c);
     if (v > 0) visitas[name] = Math.round(v);
     if (o > 0) ofertas[name] = Math.round(o);
   });
   const _allFoundGviz = new Set([...Object.keys(cierres), ...Object.keys(visitas), ...Object.keys(ofertas)]);
-  return { cierres, visitas, ofertas, found: _allFoundGviz.size };
+  return { cierres, visitas, ofertas, metas, found: _allFoundGviz.size };
 }
 
 function extractTransitoFromGvizTable(table) {
@@ -1323,7 +1327,7 @@ function extractFromGvizTable(table) {
 function applyExtracted(data, found, source) {
   _syncRetryCount = 0;
   if (_syncRetryTimer) { clearTimeout(_syncRetryTimer); _syncRetryTimer = null; }
-  const { cierres, transito, procesoTipos, visitas, ofertas } = data;
+  const { cierres, transito, procesoTipos, visitas, ofertas, metas } = data;
   DB.forEach(b => { b.cierres = 0; b.contratos = 0; b.transito = 0; });
   Object.entries(cierres).forEach(([name, val]) => {
     const idx = DB.findIndex(b => b.name === name);
@@ -1336,6 +1340,11 @@ function applyExtracted(data, found, source) {
   if (procesoTipos && Object.keys(procesoTipos).length > 0) window.EN_PROCESO_TIPOS = procesoTipos;
   if (visitas) Object.entries(visitas).forEach(([name, val]) => { const i=DB.findIndex(b=>b.name===name); if(i>=0&&val>0)DB[i].visitas=val; });
   if (ofertas) Object.entries(ofertas).forEach(([name, val]) => { const i=DB.findIndex(b=>b.name===name); if(i>=0&&val>0)DB[i].ofertas=val; });
+  if (metas && Object.keys(metas).length > 0) {
+    Object.entries(metas).forEach(([name, val]) => { const i=DB.findIndex(b=>b.name===name); if(i>=0&&val>0)DB[i].meta=val; });
+    const p = getPeriodo();
+    if (p) p.metaEquipo = DB.reduce((s, b) => s + (b.meta || 0), 0);
+  }
   setSyncStatus('green', `${source} · ${found} buyers`);
   toast(`✓ Sincronizado — ${found} buyers actualizados`);
   refreshView();
@@ -1378,11 +1387,11 @@ async function syncSheet() {
       funnelTab ? fetchSheetProxy(funnelTab).catch(() => null) : Promise.resolve(null)
     ]);
     if (!funnelRows) throw new Error('Funnel tab no disponible');
-    const { cierres, visitas, ofertas, found } = extractCierresFromFunnelRows(funnelRows);
+    const { cierres, visitas, ofertas, metas, found } = extractCierresFromFunnelRows(funnelRows);
     const { transito, procesoTipos } = extractTransitoFromRows(ofertaRows);
     if (found >= 1) {
       window.NIDS_DATA = extractNIDsFromOfertaRows(ofertaRows);
-      applyExtracted({ cierres, transito, procesoTipos, visitas, ofertas }, found, 'Sheet');
+      applyExtracted({ cierres, transito, procesoTipos, visitas, ofertas, metas }, found, 'Sheet');
       updateSyncTs();
       console.log('[ORO] Sync OK vía proxy local:', found, 'buyers');
       return;
@@ -1426,11 +1435,11 @@ async function syncSheet() {
         funnelTab ? fetchSheetGvizQuery(SHEET_ID, funnelTab).catch(() => null) : Promise.resolve(null)
       ]);
       if (!funnelTable) throw new Error('Funnel tab no disponible');
-      const { cierres: gvizCierres, visitas: gvizVisitas, ofertas: gvizOfertas, found: gvizFound } = extractCierresFromGvizFunnelTable(funnelTable);
+      const { cierres: gvizCierres, visitas: gvizVisitas, ofertas: gvizOfertas, metas: gvizMetas, found: gvizFound } = extractCierresFromGvizFunnelTable(funnelTable);
       const { transito: gvizTransito, procesoTipos: gvizTipos } = extractTransitoFromGvizTable(ofertaTable);
       if (gvizFound >= 1) {
         window.NIDS_DATA = extractNIDsFromGvizTable(ofertaTable);
-        applyExtracted({ cierres: gvizCierres, transito: gvizTransito, procesoTipos: gvizTipos, visitas: gvizVisitas, ofertas: gvizOfertas }, gvizFound, 'Sheet');
+        applyExtracted({ cierres: gvizCierres, transito: gvizTransito, procesoTipos: gvizTipos, visitas: gvizVisitas, ofertas: gvizOfertas, metas: gvizMetas }, gvizFound, 'Sheet');
         updateSyncTs();
         return;
       }
@@ -1447,11 +1456,11 @@ async function syncSheet() {
     ]);
     if (!jOferta?.table) throw new Error('Respuesta vacía');
     if (!jFunnel?.table) throw new Error('Funnel tab no disponible');
-    const { cierres: jCierres, visitas: jVisitas, ofertas: jOfertas, found: jFound } = extractCierresFromGvizFunnelTable(jFunnel.table);
+    const { cierres: jCierres, visitas: jVisitas, ofertas: jOfertas, metas: jMetas, found: jFound } = extractCierresFromGvizFunnelTable(jFunnel.table);
     const { transito: jTransito, procesoTipos: jTipos } = extractTransitoFromGvizTable(jOferta.table);
     if (jFound >= 1) {
       window.NIDS_DATA = extractNIDsFromGvizTable(jOferta.table);
-      applyExtracted({ cierres: jCierres, transito: jTransito, procesoTipos: jTipos, visitas: jVisitas, ofertas: jOfertas }, jFound, 'Sheet');
+      applyExtracted({ cierres: jCierres, transito: jTransito, procesoTipos: jTipos, visitas: jVisitas, ofertas: jOfertas, metas: jMetas }, jFound, 'Sheet');
       updateSyncTs();
       return;
     }

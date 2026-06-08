@@ -1191,23 +1191,36 @@ function extractTransitoFromRows(rows) {
     fredy:'Fredy', francisco:'Francisco', paco:'Francisco', uriel:'Uriel'
   };
   const TRANSITO = new Set(['en proceso', 'en fila']);
+  const V1_STATUS = new Set(['firmado', 'v1', 'cierre', 'directo', '24hrs']);
   const TIPO_MAP = {
     'ibuyer':'Ibuyer', 'inmobiliaria':'Inmobiliaria',
     'desarrollo':'Desarrollo', 'brokerage':'Desarrollo',
     'franquicia/inmo':'Franquicia/inmo', 'franquicia':'Franquicia/inmo'
   };
-  const transito = {}, procesoTipos = {};
+  const PROD_MAP = {
+    'ibuyer':'ibuyer', 'inmobiliaria':'inmobiliaria',
+    'desarrollo':'brokerage', 'brokerage':'brokerage',
+    'franquicia/inmo':'franquicia', 'franquicia':'franquicia'
+  };
+  const transito = {}, procesoTipos = {}, cierresProducto = {};
   rows.slice(1).forEach(cells => {
     const buyerKey = String(cells[0] || '').trim().toLowerCase();
     const status   = String(cells[6] || '').trim().toLowerCase();
-    const tipoRaw  = String(cells[2] || '').trim();
+    const tipoRaw  = String(cells[2] || '').trim().toLowerCase();
     const name = aliases[buyerKey];
-    if (!name || !TRANSITO.has(status)) return;
-    transito[name] = (transito[name] || 0) + 1;
-    const tipo = TIPO_MAP[tipoRaw.toLowerCase()];
-    if (tipo) procesoTipos[tipo] = (procesoTipos[tipo] || 0) + 1;
+    if (!name) return;
+    if (TRANSITO.has(status)) {
+      transito[name] = (transito[name] || 0) + 1;
+      const tipo = TIPO_MAP[tipoRaw];
+      if (tipo) procesoTipos[tipo] = (procesoTipos[tipo] || 0) + 1;
+    }
+    if (V1_STATUS.has(status)) {
+      if (!cierresProducto[name]) cierresProducto[name] = { ibuyer:0, brokerage:0, inmobiliaria:0, franquicia:0 };
+      const prod = PROD_MAP[tipoRaw];
+      if (prod) cierresProducto[name][prod]++;
+    }
   });
-  return { transito, procesoTipos };
+  return { transito, procesoTipos, cierresProducto };
 }
 
 function getAsUrl() { return localStorage.getItem(LS_AS_URL) || ''; }
@@ -1386,9 +1399,9 @@ async function syncSheet() {
     ]);
     if (!funnelRows) throw new Error('Funnel tab no disponible');
     const { cierres, visitas, ofertas, metas, found } = extractCierresFromFunnelRows(funnelRows);
-    const { transito, procesoTipos } = extractTransitoFromRows(ofertaRows);
+    const { transito, procesoTipos, cierresProducto } = extractTransitoFromRows(ofertaRows);
     if (found >= 1) {
-      applyExtracted({ cierres, transito, procesoTipos, visitas, ofertas, metas }, found, 'Sheet');
+      applyExtracted({ cierres, transito, procesoTipos, visitas, ofertas, metas, cierresProducto }, found, 'Sheet');
       updateSyncTs();
       console.log('[Zeus] Sync OK vía proxy local:', found, 'buyers');
       return;
@@ -1425,9 +1438,9 @@ async function syncSheet() {
       ]);
       if (!funnelTable) throw new Error('Funnel tab no disponible');
       const { cierres: gvizCierres, visitas: gvizVisitas, ofertas: gvizOfertas, metas: gvizMetas, found: gvizFound } = extractCierresFromGvizFunnelTable(funnelTable);
-      const { transito: gvizTransito, procesoTipos: gvizTipos } = extractTransitoFromGvizTable(ofertaTable);
+      const { transito: gvizTransito, procesoTipos: gvizTipos, cierresProducto: gvizProducto } = extractTransitoFromGvizTable(ofertaTable);
       if (gvizFound >= 1) {
-        applyExtracted({ cierres: gvizCierres, transito: gvizTransito, procesoTipos: gvizTipos, visitas: gvizVisitas, ofertas: gvizOfertas, metas: gvizMetas }, gvizFound, 'Sheet');
+        applyExtracted({ cierres: gvizCierres, transito: gvizTransito, procesoTipos: gvizTipos, visitas: gvizVisitas, ofertas: gvizOfertas, metas: gvizMetas, cierresProducto: gvizProducto }, gvizFound, 'Sheet');
         updateSyncTs();
         console.log('[Zeus] Sync OK vía GvizQuery:', gvizFound, 'buyers');
         return;
@@ -1446,9 +1459,9 @@ async function syncSheet() {
     ]);
     if (!fetchFunnel) throw new Error('Funnel tab no disponible');
     const { cierres: fCierres, visitas: fVisitas, ofertas: fOfertas, metas: fMetas, found: fFound } = extractCierresFromFunnelRows(fetchFunnel);
-    const { transito: fTransito, procesoTipos: fTipos } = extractTransitoFromRows(fetchOferta);
+    const { transito: fTransito, procesoTipos: fTipos, cierresProducto: fProducto } = extractTransitoFromRows(fetchOferta);
     if (fFound >= 1) {
-      applyExtracted({ cierres: fCierres, transito: fTransito, procesoTipos: fTipos, visitas: fVisitas, ofertas: fOfertas, metas: fMetas }, fFound, 'Sheet');
+      applyExtracted({ cierres: fCierres, transito: fTransito, procesoTipos: fTipos, visitas: fVisitas, ofertas: fOfertas, metas: fMetas, cierresProducto: fProducto }, fFound, 'Sheet');
       updateSyncTs();
       return;
     }
@@ -1466,9 +1479,9 @@ async function syncSheet() {
     if (!jOferta?.table) throw new Error('Respuesta vacía');
     if (!jFunnel?.table) throw new Error('Funnel tab no disponible');
     const { cierres: jCierres, visitas: jVisitas, ofertas: jOfertas, metas: jMetas, found: jFound } = extractCierresFromGvizFunnelTable(jFunnel.table);
-    const { transito: jTransito, procesoTipos: jTipos } = extractTransitoFromGvizTable(jOferta.table);
+    const { transito: jTransito, procesoTipos: jTipos, cierresProducto: jProducto } = extractTransitoFromGvizTable(jOferta.table);
     if (jFound >= 1) {
-      applyExtracted({ cierres: jCierres, transito: jTransito, procesoTipos: jTipos, visitas: jVisitas, ofertas: jOfertas, metas: jMetas }, jFound, 'Sheet');
+      applyExtracted({ cierres: jCierres, transito: jTransito, procesoTipos: jTipos, visitas: jVisitas, ofertas: jOfertas, metas: jMetas, cierresProducto: jProducto }, jFound, 'Sheet');
       updateSyncTs();
       return;
     }
@@ -1545,24 +1558,37 @@ function extractTransitoFromGvizTable(table) {
     fredy:'Fredy', francisco:'Francisco', paco:'Francisco', uriel:'Uriel'
   };
   const TRANSITO = new Set(['en proceso', 'en fila']);
+  const V1_STATUS = new Set(['firmado', 'v1', 'cierre', 'directo', '24hrs']);
   const TIPO_MAP = {
     'ibuyer':'Ibuyer', 'inmobiliaria':'Inmobiliaria',
     'desarrollo':'Desarrollo', 'brokerage':'Desarrollo',
     'franquicia/inmo':'Franquicia/inmo', 'franquicia':'Franquicia/inmo'
   };
-  const transito = {}, procesoTipos = {};
+  const PROD_MAP = {
+    'ibuyer':'ibuyer', 'inmobiliaria':'inmobiliaria',
+    'desarrollo':'brokerage', 'brokerage':'brokerage',
+    'franquicia/inmo':'franquicia', 'franquicia':'franquicia'
+  };
+  const transito = {}, procesoTipos = {}, cierresProducto = {};
   (table.rows || []).forEach(row => {
     const cells = row.c || [];
     const buyerKey = String(cells[0]?.v || '').trim().toLowerCase();
     const status   = String(cells[6]?.v || '').trim().toLowerCase();
-    const tipoRaw  = String(cells[2]?.v || '').trim();
+    const tipoRaw  = String(cells[2]?.v || '').trim().toLowerCase();
     const name = aliases[buyerKey];
-    if (!name || !TRANSITO.has(status)) return;
-    transito[name] = (transito[name] || 0) + 1;
-    const tipo = TIPO_MAP[tipoRaw.toLowerCase()];
-    if (tipo) procesoTipos[tipo] = (procesoTipos[tipo] || 0) + 1;
+    if (!name) return;
+    if (TRANSITO.has(status)) {
+      transito[name] = (transito[name] || 0) + 1;
+      const tipo = TIPO_MAP[tipoRaw];
+      if (tipo) procesoTipos[tipo] = (procesoTipos[tipo] || 0) + 1;
+    }
+    if (V1_STATUS.has(status)) {
+      if (!cierresProducto[name]) cierresProducto[name] = { ibuyer:0, brokerage:0, inmobiliaria:0, franquicia:0 };
+      const prod = PROD_MAP[tipoRaw];
+      if (prod) cierresProducto[name][prod]++;
+    }
   });
-  return { transito, procesoTipos };
+  return { transito, procesoTipos, cierresProducto };
 }
 
 function extractFromGvizTable(table) {
@@ -1631,8 +1657,8 @@ function extractFromOfertaMayo(rows) {
 function applyExtracted(data, found, source) {
   _syncRetryCount = 0;
   if (_syncRetryTimer) { clearTimeout(_syncRetryTimer); _syncRetryTimer = null; }
-  const { cierres, transito, procesoTipos, visitas, ofertas, metas } = data;
-  DB.forEach(b => { b.cierres = 0; b.contratos = 0; b.transito = 0; });
+  const { cierres, transito, procesoTipos, visitas, ofertas, metas, cierresProducto } = data;
+  DB.forEach(b => { b.cierres = 0; b.contratos = 0; b.transito = 0; b.ibuyer = 0; b.brokerage = 0; b.inmobiliaria = 0; b.franquicia = 0; });
   Object.entries(cierres).forEach(([name, val]) => {
     const idx = DB.findIndex(b => b.name === name);
     if (idx >= 0) { DB[idx].cierres = val; DB[idx].contratos = val; }
@@ -1648,6 +1674,17 @@ function applyExtracted(data, found, source) {
     Object.entries(metas).forEach(([name, val]) => { const i=DB.findIndex(b=>b.name===name); if(i>=0&&val>0)DB[i].meta=val; });
     const p = getPeriodo();
     if (p) p.metaEquipo = DB.reduce((s, b) => s + (b.meta || 0), 0);
+  }
+  if (cierresProducto && Object.keys(cierresProducto).length > 0) {
+    Object.entries(cierresProducto).forEach(([name, p]) => {
+      const i = DB.findIndex(b => b.name === name);
+      if (i >= 0) {
+        DB[i].ibuyer      = p.ibuyer      || 0;
+        DB[i].brokerage   = p.brokerage   || 0;
+        DB[i].inmobiliaria= p.inmobiliaria || 0;
+        DB[i].franquicia  = p.franquicia   || 0;
+      }
+    });
   }
   setSyncStatus('green', `${source} · ${found} buyers`);
   toast(`✓ Sincronizado — ${found} buyers actualizados`);

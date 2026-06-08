@@ -215,7 +215,7 @@ function switchMes(key) {
   const snap = DB_SNAPSHOTS[key];
   (snap || dbTemplate()).forEach(r => DB.push({...r}));
   window.EN_PROCESO_TIPOS = {};
-  window.NIDS_DATA = snap ? window.NIDS_DATA_MAYO : {};
+  window.NIDS_DATA = (key === 'mayo-2026') ? window.NIDS_DATA_MAYO : {};
   document.getElementById('mes-selector').value = key;
   currentView = 'equipo';
   buildSemanaFilter();
@@ -1142,6 +1142,69 @@ function fetchSheetProxy(tab) {
   });
 }
 
+function extractNIDsFromOfertaRows(rows) {
+  const aliases = {
+    karla:'Karla', roberto:'Roberto', alejandro:'Alejandro',
+    claudia:'Claudia', clau:'Claudia', andrea:'Andrea',
+    fredy:'Fredy', francisco:'Francisco', paco:'Francisco', uriel:'Uriel'
+  };
+  const V1_STATUS = new Set(['firmado','v1','cierre','directo','24hrs']);
+  const TIPO_MAP = {
+    'ibuyer':'Ibuyer', 'inmobiliaria':'Inmobiliaria',
+    'desarrollo':'Desarrollo', 'brokerage':'Desarrollo',
+    'franquicia/inmo':'Franquicia/inmo', 'franquicia':'Franquicia/inmo'
+  };
+  const result = {};
+  rows.slice(1).forEach(cells => {
+    const buyerKey = String(cells[0] || '').trim().toLowerCase();
+    const name = aliases[buyerKey];
+    if (!name) return;
+    const status = String(cells[6] || '').trim().toLowerCase();
+    if (!V1_STATUS.has(status)) return;
+    const tipoRaw = String(cells[2] || '').trim();
+    const tipo    = TIPO_MAP[tipoRaw.toLowerCase()] || tipoRaw;
+    const nid     = String(cells[1] || '').trim();
+    const email   = String(cells[7] || '').trim();
+    const display = (tipo === 'Desarrollo') ? email : nid;
+    if (!display) return;
+    if (!result[name]) result[name] = [];
+    result[name].push({ tipo, display });
+  });
+  return result;
+}
+
+function extractNIDsFromGvizTable(table) {
+  const aliases = {
+    karla:'Karla', roberto:'Roberto', alejandro:'Alejandro',
+    claudia:'Claudia', clau:'Claudia', andrea:'Andrea',
+    fredy:'Fredy', francisco:'Francisco', paco:'Francisco', uriel:'Uriel'
+  };
+  const V1_STATUS = new Set(['firmado','v1','cierre','directo','24hrs']);
+  const TIPO_MAP = {
+    'ibuyer':'Ibuyer', 'inmobiliaria':'Inmobiliaria',
+    'desarrollo':'Desarrollo', 'brokerage':'Desarrollo',
+    'franquicia/inmo':'Franquicia/inmo', 'franquicia':'Franquicia/inmo'
+  };
+  const result = {};
+  (table.rows || []).forEach(row => {
+    const cells = row.c || [];
+    const buyerKey = String(cells[0]?.v || '').trim().toLowerCase();
+    const name = aliases[buyerKey];
+    if (!name) return;
+    const status = String(cells[6]?.v || '').trim().toLowerCase();
+    if (!V1_STATUS.has(status)) return;
+    const tipoRaw = String(cells[2]?.v || '').trim();
+    const tipo    = TIPO_MAP[tipoRaw.toLowerCase()] || tipoRaw;
+    const nid     = String(cells[1]?.v || '').trim();
+    const email   = String(cells[7]?.v || '').trim();
+    const display = (tipo === 'Desarrollo') ? email : nid;
+    if (!display) return;
+    if (!result[name]) result[name] = [];
+    result[name].push({ tipo, display });
+  });
+  return result;
+}
+
 function extractFunnelDataFromRows(rows) {
   const aliases = {
     karla:'Karla', roberto:'Roberto', alejandro:'Alejandro',
@@ -1401,6 +1464,7 @@ async function syncSheet() {
     const { cierres, visitas, ofertas, metas, found } = extractCierresFromFunnelRows(funnelRows);
     const { transito, procesoTipos, cierresProducto } = extractTransitoFromRows(ofertaRows);
     if (found >= 1) {
+      window.NIDS_DATA = extractNIDsFromOfertaRows(ofertaRows);
       applyExtracted({ cierres, transito, procesoTipos, visitas, ofertas, metas, cierresProducto }, found, 'Sheet');
       updateSyncTs();
       console.log('[Zeus] Sync OK vía proxy local:', found, 'buyers');
@@ -1440,6 +1504,7 @@ async function syncSheet() {
       const { cierres: gvizCierres, visitas: gvizVisitas, ofertas: gvizOfertas, metas: gvizMetas, found: gvizFound } = extractCierresFromGvizFunnelTable(funnelTable);
       const { transito: gvizTransito, procesoTipos: gvizTipos, cierresProducto: gvizProducto } = extractTransitoFromGvizTable(ofertaTable);
       if (gvizFound >= 1) {
+        window.NIDS_DATA = extractNIDsFromGvizTable(ofertaTable);
         applyExtracted({ cierres: gvizCierres, transito: gvizTransito, procesoTipos: gvizTipos, visitas: gvizVisitas, ofertas: gvizOfertas, metas: gvizMetas, cierresProducto: gvizProducto }, gvizFound, 'Sheet');
         updateSyncTs();
         console.log('[Zeus] Sync OK vía GvizQuery:', gvizFound, 'buyers');
@@ -1461,6 +1526,7 @@ async function syncSheet() {
     const { cierres: fCierres, visitas: fVisitas, ofertas: fOfertas, metas: fMetas, found: fFound } = extractCierresFromFunnelRows(fetchFunnel);
     const { transito: fTransito, procesoTipos: fTipos, cierresProducto: fProducto } = extractTransitoFromRows(fetchOferta);
     if (fFound >= 1) {
+      window.NIDS_DATA = extractNIDsFromOfertaRows(fetchOferta);
       applyExtracted({ cierres: fCierres, transito: fTransito, procesoTipos: fTipos, visitas: fVisitas, ofertas: fOfertas, metas: fMetas, cierresProducto: fProducto }, fFound, 'Sheet');
       updateSyncTs();
       return;
@@ -1481,6 +1547,7 @@ async function syncSheet() {
     const { cierres: jCierres, visitas: jVisitas, ofertas: jOfertas, metas: jMetas, found: jFound } = extractCierresFromGvizFunnelTable(jFunnel.table);
     const { transito: jTransito, procesoTipos: jTipos, cierresProducto: jProducto } = extractTransitoFromGvizTable(jOferta.table);
     if (jFound >= 1) {
+      window.NIDS_DATA = extractNIDsFromGvizTable(jOferta.table);
       applyExtracted({ cierres: jCierres, transito: jTransito, procesoTipos: jTipos, visitas: jVisitas, ofertas: jOfertas, metas: jMetas, cierresProducto: jProducto }, jFound, 'Sheet');
       updateSyncTs();
       return;

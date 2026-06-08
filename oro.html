@@ -365,7 +365,7 @@ window.NIDS_DATA_MAYO = {
   ],
   'Uriel': [],
 };
-window.NIDS_DATA = window.NIDS_DATA_MAYO;
+window.NIDS_DATA = currentPeriodoKey === 'mayo-2026' ? window.NIDS_DATA_MAYO : {};
 
 // ─── DATA ─────────────────────────────────────────────────────────────────────
 const _initSnap = DB_SNAPSHOTS[currentPeriodoKey];

@@ -611,11 +611,16 @@ function renderEquipo() {
   const convVO = totalVisitas > 0 ? (totalOfertas/totalVisitas*100).toFixed(1)+'%' : '—';
   const convOC = totalOfertas > 0 ? (totalCierres/totalOfertas*100).toFixed(1)+'%' : '—';
   const convVC = totalVisitas > 0 ? (totalCierres/totalVisitas*100).toFixed(1)+'%' : '—';
-  const totIbuyer = data.reduce((s,b)=>s+b.ibuyer, 0);
-  const totBrokerage = data.reduce((s,b)=>s+b.brokerage, 0);
-  const totInmobiliaria = data.reduce((s,b)=>s+b.inmobiliaria, 0);
-  const totFranquicia = data.reduce((s,b)=>s+(b.franquicia||0), 0);
-  const pctCan = v => totalCierres > 0 ? (v/totalCierres*100).toFixed(1)+'%' : '—';
+  // Totales del bloque "Total de ventas": SIEMPRE del DB completo, ignoran filtros del sheet/CRM
+  const totalCierresAll = DB.reduce((s,b)=>s+b.cierres, 0);
+  const totIbuyer = DB.reduce((s,b)=>s+b.ibuyer, 0);
+  const totBrokerage = DB.reduce((s,b)=>s+b.brokerage, 0);
+  const totInmobiliaria = DB.reduce((s,b)=>s+b.inmobiliaria, 0);
+  const totFranquicia = DB.reduce((s,b)=>s+(b.franquicia||0), 0);
+  const alcEquipoAll = (totalCierresAll / META_EQUIPO * 100).toFixed(1);
+  const semEqAll = alcEquipoAll>=85?'verde':alcEquipoAll>=65?'amarillo':'rojo';
+  const colEqAll = semEqAll==='verde'?COLORES.verde:semEqAll==='amarillo'?COLORES.amarillo:COLORES.rojo;
+  const pctCan = v => totalCierresAll > 0 ? (v/totalCierresAll*100).toFixed(1)+'%' : '—';
 
   document.getElementById('page-badge').textContent = `${totalCierres} / ${META_EQUIPO} cierres`;
   document.getElementById('page-badge').className = `pill pill-${semEq==='verde'?'g':semEq==='amarillo'?'a':'r'} text-xs`;
@@ -628,7 +633,13 @@ function renderEquipo() {
     <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
       ${kpiCard('Cierres V1',totalCierres,'de '+META_EQUIPO+' meta',colEq)}
       ${kpiCard('Alcance equipo',alcEquipo+'%','de meta '+META_EQUIPO,colEq)}
-      ${kpiCard('Gap a meta',META_EQUIPO-totalCierres,'cierres restantes',COLORES.rojo)}
+      ${(() => {
+        const gap = META_EQUIPO - totalCierresAll;
+        const valor = Math.max(gap, 0);
+        const sub = gap <= 0 ? `Meta superada por ${Math.abs(gap)}` : 'cierres restantes';
+        const color = gap <= 0 ? COLORES.verde : COLORES.rojo;
+        return kpiCard('Gap a meta', valor, sub, color);
+      })()}
       ${kpiCard('En proceso',totalTransito,procesoBySub(),COLORES.amarillo)}
       ${kpiCard('Días restantes',DIAS_REST,getPeriodo().cierreLabel||'—',COLORES.azul)}
     </div>
@@ -637,8 +648,8 @@ function renderEquipo() {
     <div class="card p-5">
       <div class="text-sm font-medium text-white mb-4">Total de ventas</div>
       <div class="text-center mb-5">
-        <div class="text-5xl font-bold" style="color:${colEq}">${totalCierres}</div>
-        <div class="text-xs text-gray-500 mt-1">ventas cerradas · ${alcEquipo}% de meta ${META_EQUIPO}</div>
+        <div class="text-5xl font-bold" style="color:${colEqAll}">${totalCierresAll}</div>
+        <div class="text-xs text-gray-500 mt-1">ventas cerradas · ${alcEquipoAll}% de meta ${META_EQUIPO}</div>
       </div>
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div class="rounded-lg p-4 bg-gray-800/50 text-center">

@@ -89,7 +89,7 @@ tailwind.config = {
     <header class="sticky top-0 z-10 bg-gray-900/90 backdrop-blur border-b border-gray-800 px-6 py-3 flex items-center justify-between gap-4">
       <div class="flex items-center gap-3">
         <span class="text-sm font-medium text-white" id="page-title">Equipo Olimpo</span>
-        <span class="pill pill-g text-xs" id="page-badge">103 meta</span>
+        <span class="pill pill-g text-xs" id="page-badge">meta equipo</span>
       </div>
       <div class="flex items-center gap-3">
         <select id="mes-selector" onchange="switchMes(this.value)" class="text-xs bg-gray-900 border border-blue-500/40 rounded-lg px-3 py-1.5 text-blue-300 font-medium focus:outline-none focus:border-blue-400">
@@ -152,13 +152,16 @@ const PERIODOS = [
   { key:'abril-2026',   label:'Abril 2026',   tab:'Oferta abril 2026',   funnelTab:'Funnel y metas abril 2026',   metaEquipo:103, diasRest:0, cierreLabel:'', semanas:['1','2','3','4'] },
   { key:'mayo-2026',    label:'Mayo 2026',     tab:'Oferta mayo 2026',    funnelTab:'Funnel y metas mayo 2026',    metaEquipo:103, diasRest:0, cierreLabel:'', semanas:['5-11 may','12-18 may','19-25 may','26 may-1 jun'] },
   { key:'junio-2026',   label:'Junio 2026',   tab:'Oferta junio 2026',   funnelTab:'Funnel y metas junio 2026',   metaEquipo:103, diasRest:0, cierreLabel:'Cierre 29 jun', semanas:['2-8 jun','9-15 jun','16-22 jun','23-29 jun'] },
-  { key:'julio-2026',   label:'Julio 2026',   tab:'Oferta julio 2026',   funnelTab:'Funnel y metas julio 2026',   metaEquipo:103, diasRest:0, cierreLabel:'Cierre 3 ago', semanas:['30 jun-6 jul','7-13 jul','14-20 jul','21-27 jul','28 jul-3 ago'], live:true },
+  { key:'julio-2026',   label:'Julio 2026',   tab:'Oferta julio 2026',   funnelTab:'Funnel y metas julio 2026',   metaEquipo:112, diasRest:0, cierreLabel:'Cierre 3 ago', semanas:['30 jun-6 jul','7-13 jul','14-20 jul','21-27 jul','28 jul-3 ago'], live:true },
 ];
 let currentPeriodoKey = 'julio-2026';
 function getPeriodo() { return PERIODOS.find(p => p.key === currentPeriodoKey) || PERIODOS[4]; }
 
 // ─── CONSTANTS ───────────────────────────────────────────────────────────────
-const META_EQUIPO = 103;
+const META_EQUIPO_DEFAULT = 103;
+Object.defineProperty(window, 'META_EQUIPO', {
+  get() { const p = (typeof getPeriodo === 'function') ? getPeriodo() : null; return (p && p.metaEquipo) || META_EQUIPO_DEFAULT; }
+});
 let DIAS_REST = 0;
 let SEMANAS = ['30 jun-6 jul','7-13 jul','14-20 jul','21-27 jul','28 jul-3 ago'];
 const COLORES = { verde:'#4ade80', amarillo:'#fbbf24', rojo:'#f87171', azul:'#60a5fa', purpura:'#a78bfa', gris:'#6b7280' };
@@ -1765,8 +1768,6 @@ function applyExtracted(data, found, source) {
   if (ofertas) Object.entries(ofertas).forEach(([name, val]) => { const i=DB.findIndex(b=>b.name===name); if(i>=0&&val>0)DB[i].ofertas=val; });
   if (metas && Object.keys(metas).length > 0) {
     Object.entries(metas).forEach(([name, val]) => { const i=DB.findIndex(b=>b.name===name); if(i>=0&&val>0)DB[i].meta=val; });
-    const p = getPeriodo();
-    if (p) p.metaEquipo = DB.reduce((s, b) => s + (b.meta || 0), 0);
   }
   if (cierresProducto && Object.keys(cierresProducto).length > 0) {
     Object.entries(cierresProducto).forEach(([name, p]) => {
